@@ -11,6 +11,7 @@ class Command(StrEnum):
     DELETE = "/delete"
     VIEW = "/view"
     ABORT = "/abort"
+    SETTING = "/setting"
     # premium features
     UPGRADE = "/upgrade"
     SHARE = "/share"
@@ -51,8 +52,8 @@ SUPPORTED_UNITS = {unit.value for unit in CycleUnit}
 class NewEventSteps(StrEnum):
     INPUT_NAME = auto()
     INPUT_START_DATE = auto()
-    INPUT_TOGGLE_REMINDER = auto()
-    INPUT_REMINDER_CYCLE = auto()
+    INPUT_ENABLE_REMINDER = auto()
+    INPUT_EVENT_CYCLE = auto()
 
 
 class FindEventSteps(StrEnum):

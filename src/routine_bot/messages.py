@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from dateutil.relativedelta import relativedelta
 from linebot.v3.messaging import (
     ButtonsTemplate,
     DatetimePickerAction,
@@ -13,8 +14,10 @@ from linebot.v3.messaging import (
     TextMessage,
 )
 
-from src.routine_bot.constants import FREE_PLAN_MAX_EVENTS
-from src.routine_bot.models import EventData
+from routine_bot.constants import FREE_PLAN_MAX_EVENTS, TZ_TAIPEI
+from routine_bot.models import EventData
+
+# ------------------------------ Util Functions ------------------------------ #
 
 
 def flex_text_bold_line(text: str) -> FlexText:
@@ -42,6 +45,22 @@ def flex_bubble_template(title: str, lines: list[str]) -> FlexBubble:
         ),
     )
     return bubble
+
+
+def parse_time_delta(timedelta_: relativedelta) -> str:
+    time_diff = ""
+    if timedelta_.years:
+        time_diff = f"{timedelta_.years}年"
+    if timedelta_.months:
+        time_diff = f"{time_diff} {timedelta_.months}個月"
+    if timedelta_.weeks:
+        time_diff = f"{time_diff} {timedelta_.weeks}週"
+    if timedelta_.days:
+        time_diff = f"{time_diff} {timedelta_.days}日"
+    return time_diff.lstrip()
+
+
+# ----------------------------- Message Builders ------------------------------ #
 
 
 class NewEventMsg:
@@ -77,10 +96,10 @@ class NewEventMsg:
         return msg
 
     @staticmethod
-    def prompt_for_reminder_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
+    def prompt_for_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
         template = ButtonsTemplate(
             title=f"🎯 新事件［{chat_payload['event_name']}］",
-            text=f"\n🗓 起始日期：{chat_payload['start_date'][:10]}\n\n⬇️ 請選擇提醒週期",
+            text=f"\n🗓 起始日期：{chat_payload['start_date'][:10]}\n\n⬇️ 請選擇事件週期",
             actions=[
                 MessageAction(label="1 天", text="1 day"),
                 MessageAction(label="1 週", text="1 week"),
@@ -88,11 +107,11 @@ class NewEventMsg:
                 MessageAction(label="輸入自訂週期（點我看範例）", text="example"),
             ],
         )
-        msg = TemplateMessage(altText=f"🎯 新事件［{chat_payload['event_name']}］➡️ 請選擇提醒週期", template=template)
+        msg = TemplateMessage(altText=f"🎯 新事件［{chat_payload['event_name']}］➡️ 請選擇事件週期", template=template)
         return msg
 
     @staticmethod
-    def reminder_cycle_example() -> FlexMessage:
+    def event_cycle_example() -> FlexMessage:
         bubble = flex_bubble_template(
             title="🌟 自訂週期輸入格式",
             lines=["支援以下格式：", "📌 3 day", "📌 2 week", "📌 1 month", "⚠️ 請直接輸入上述其中一種格式"],
@@ -118,7 +137,7 @@ class NewEventMsg:
             lines=[
                 f"🎯 新事件［{chat_payload['event_name']}］",
                 f"🗓 起始日期：{chat_payload['start_date'][:10]}",
-                f"⏰ 提醒週期：{chat_payload['reminder_cycle']}",
+                f"🔁 事件週期：{chat_payload['event_cycle']}",
             ],
         )
         return FlexMessage(altText=f"🎯 新事件［{chat_payload['event_name']}］✅ 新增完成！", contents=bubble)
@@ -136,7 +155,7 @@ class NewEventMsg:
         return msg
 
     @staticmethod
-    def invalid_input_for_toggle_reminder(chat_payload: dict[str, str]) -> TemplateMessage:
+    def invalid_input_for_enable_reminder(chat_payload: dict[str, str]) -> TemplateMessage:
         template = ButtonsTemplate(
             title=f"🎯 新事件［{chat_payload['event_name']}］",
             text=f"\n🗓 起始日期：{chat_payload['start_date'][:10]}\n\n⚠️ 無效的輸入，請再試一次\n\n⬇️ 請透過下方按鈕是否設定提醒",
@@ -151,7 +170,7 @@ class NewEventMsg:
         return msg
 
     @staticmethod
-    def invalid_input_for_reminder_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
+    def invalid_input_for_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
         template = ButtonsTemplate(
             title=f"🎯 新事件［{chat_payload['event_name']}］",
             text=f"\n🗓 起始日期：{chat_payload['start_date'][:10]}\n\n⚠️ 無效的輸入，請再試一次\n\n⬇️ 請選擇提醒週期",
@@ -176,12 +195,9 @@ class FindEventMsg:
     @staticmethod
     def format_event_summary(event: EventData, recent_update_times: list[datetime]) -> FlexMessage:
         contents = [flex_text_bold_line(f"🎯［{event.event_name}］的事件摘要"), FlexSeparator()]
-        # the use of contents.extend will unfold the list to be extended
-        # which does not look good
-        if event.reminder:
-            contents.append(flex_text_normal_line(f"⏰ 提醒週期：{event.reminder_cycle}"))
-            contents.append(flex_text_normal_line(f"🔔 下次提醒：{event.next_reminder.strftime('%Y-%m-%d')}"))
-
+        if event.reminder_enabled:
+            contents.append(flex_text_normal_line(f"⏰ 事件間隔：{event.event_cycle}"))
+            contents.append(flex_text_normal_line(f"🔔 下次預計：{event.next_due_at.strftime('%Y-%m-%d')}"))
         else:
             contents.append(flex_text_normal_line("🔕 提醒設定：關閉"))
         contents.append(FlexSeparator())
@@ -262,9 +278,60 @@ class GreetingMsg:
 
 class AbortMsg:
     @staticmethod
-    def no_ongoing_chat() -> str:
+    def no_ongoing_chat() -> TextMessage:
         return TextMessage(text="沒有進行中的操作可以取消🤣")
 
     @staticmethod
-    def ongoing_chat_aborted() -> str:
+    def ongoing_chat_aborted() -> TextMessage:
         return TextMessage(text="已中止目前的操作🙏\n請重新輸入新的指令😉")
+
+
+class ReminderMsg:
+    @staticmethod
+    def user_owned_event(event: EventData) -> FlexMessage:
+        overdue_by = relativedelta(datetime.now(TZ_TAIPEI), event.next_due_at)
+        overdue_by = parse_time_delta(overdue_by)
+
+        lines = [
+            f"✅ 上次完成：{event.last_done_at.strftime('%Y-%m-%d')}",
+            f"🔁 事件間隔：{event.event_cycle}",
+        ]
+        if not overdue_by:
+            lines.append(f"🗓️ 下次日期：{event.next_due_at.strftime('%Y-%m-%d')}")
+            alt_text = f"⏰ 溫馨提醒～［{event.event_name}］已到預定的下次日期"
+        else:
+            lines.append(f"🗓️ 原定下次日期：{event.next_due_at.strftime('%Y-%m-%d')}")
+            lines.append(f"⏳ 已超過原定間隔：{overdue_by}")
+            alt_text = f"⏰ 溫馨提醒～［{event.event_name}］已超過原定間隔 {overdue_by}"
+
+        bubble = flex_bubble_template(
+            title=f"⏰ 是時候安排下次的［{event.event_name}］了！",
+            lines=lines,
+        )
+        msg = FlexMessage(altText=alt_text, contents=bubble)
+        return msg
+
+    @staticmethod
+    def shared_event(event: EventData, owner_profile: dict[str, str]) -> FlexMessage:
+        overdue_by = relativedelta(datetime.now(TZ_TAIPEI), event.next_due_at)
+        overdue_by = parse_time_delta(overdue_by)
+
+        lines = [
+            f"🫂 來自共享：{owner_profile.get('displayName')}",
+            f"✅ 上次完成：{event.last_done_at.strftime('%Y-%m-%d')}",
+            f"🔁 事件間隔：{event.event_cycle}",
+        ]
+        if not overdue_by:
+            lines.append(f"🗓️ 下次日期：{event.next_due_at.strftime('%Y-%m-%d')}")
+            alt_text = f"⏰ 溫馨提醒～［{event.event_name}］（來自{owner_profile.get('displayName')}）已到下次預計時間"
+        else:
+            lines.append(f"🗓️ 原定下次日期：{event.next_due_at.strftime('%Y-%m-%d')}")
+            lines.append(f"⏳ 已超過原定間隔：{overdue_by}")
+            alt_text = f"⏰ 溫馨提醒～［{event.event_name}］（來自{owner_profile.get('displayName')}）已超過原定間隔 {overdue_by}"
+
+        bubble = flex_bubble_template(
+            title=f"⏰ 是時候安排下次的［{event.event_name}］了！",
+            lines=lines,
+        )
+        msg = FlexMessage(altText=alt_text, contents=bubble)
+        return msg

@@ -1,13 +1,21 @@
 import logging
+from datetime import datetime
 
 import psycopg
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import Response
 from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.messaging import ApiClient, MessagingApi, PushMessageRequest
 
-from routine_bot.constants import DATABASE_URL, LOGGING_CONFIG, REMINDER_TOKEN
-from routine_bot.db import init_db
-from routine_bot.handlers import handler
+from routine_bot.constants import DATABASE_URL, LOGGING_CONFIG, REMINDER_TOKEN, TZ_TAIPEI
+from routine_bot.db import (
+    init_db,
+    list_active_users_by_notification_slot,
+    list_overdue_events_by_user,
+    list_overdue_shared_events_by_user,
+)
+from routine_bot.handlers import configuration, get_user_profile, handler
+from routine_bot.messages import ReminderMsg
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
@@ -43,6 +51,31 @@ async def webhook(request: Request):
     return Response(status_code=status.HTTP_200_OK)
 
 
+def send_reminders_for_user_owned_events(user_id: str, line_bot_api: MessagingApi, conn: psycopg.Connection) -> None:
+    events = list_overdue_events_by_user(user_id, conn)
+    if len(events):
+        logger.info(f"{len(events)} overdue events found")
+    else:
+        logger.info("No overdue event found")
+    for event in events:
+        push_msg = ReminderMsg.user_owned_event(event)
+        line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[push_msg]))
+        logger.info(f"Notification sent: {event.event_id}")
+
+
+def send_reminders_for_shared_events(user_id: str, line_bot_api: MessagingApi, conn: psycopg.Connection) -> None:
+    events = list_overdue_shared_events_by_user(user_id, conn)
+    if len(events):
+        logger.info(f"{len(events)} overdue shared events found")
+    else:
+        logger.info("No overdue shared event found")
+    for event in events:
+        owner_profile = get_user_profile(event.user_id)
+        push_msg = ReminderMsg.shared_event(event, owner_profile)
+        line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[push_msg]))
+        logger.info(f"Notification sent: {event.event_id}")
+
+
 @app.post("/reminder/run")
 async def run_reminder(request: Request):
     auth_header = request.headers.get("Authorization")
@@ -52,5 +85,16 @@ async def run_reminder(request: Request):
     if token != REMINDER_TOKEN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
 
-    with psycopg.connect(conninfo=DATABASE_URL) as conn:
-        pass
+    logger.info("Starting the reminder process")
+    with psycopg.connect(conninfo=DATABASE_URL) as conn, ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
+        time_slot = datetime.now(TZ_TAIPEI).replace(minute=0, second=0, microsecond=0, hour=0).time()
+        users = list_active_users_by_notification_slot(time_slot, conn)
+        for user_id in users:
+            logger.info(f"Sending reminders for user: {user_id}")
+            send_reminders_for_user_owned_events(user_id, line_bot_api, conn)
+            send_reminders_for_shared_events(user_id, line_bot_api, conn)
+            logger.info(f"Finished sending reminders for user: {user_id}")
+    logger.info("Reminder process completed")
+
+    return Response(status_code=status.HTTP_200_OK)

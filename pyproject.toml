@@ -1,9 +1,11 @@
 [project]
 name = "routine-bot"
 description = "Routine-tracking LINE bot"
+version = "0"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "cachetools>=6.2.1",
     "fastapi[standard]>=0.116.1",
     "line-bot-sdk>=3.18.1",
     "psycopg[binary]>=3.2.9",

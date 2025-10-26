@@ -1,17 +1,14 @@
 from dataclasses import dataclass, field
 from datetime import datetime, time
 
-from src.routine_bot.constants import FREE_PLAN_MAX_EVENTS, TZ_TAIPEI
-from src.routine_bot.enums import ChatStatus
+from routine_bot.constants import FREE_PLAN_MAX_EVENTS, TZ_TAIPEI
+from routine_bot.enums import ChatStatus
 
 
 @dataclass
 class UserData:
     user_id: str
-    display_name: str
-    picturl_url: str
-    profile_refreshed_at: datetime
-    notification_time: time
+    notification_slot: time
     event_count: int
     is_premium: bool
     premium_until: datetime | None
@@ -46,10 +43,9 @@ class EventData:
     event_name: str
     user_id: str
     last_done_at: datetime
-    reminder: bool
-    reminder_cycle: str | None = None
-    next_reminder: datetime | None = None
-    last_notification_sent_at: datetime | None = None
+    reminder_enabled: bool
+    event_cycle: str | None = None
+    next_due_at: datetime | None = None
     share_count: int = 0
 
 

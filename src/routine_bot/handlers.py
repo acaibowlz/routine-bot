@@ -6,7 +6,9 @@ from datetime import datetime
 
 import psycopg
 import requests
+from cachetools.func import ttl_cache
 from dateutil.relativedelta import relativedelta
+from fastapi import status
 from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import (
     ApiClient,
@@ -36,7 +38,7 @@ from routine_bot.enums import (
     NewEventSteps,
 )
 from routine_bot.messages import AbortMsg, ErrorMsg, FindEventMsg, GreetingMsg, NewEventMsg
-from routine_bot.models import ChatData, EventData, UpdateData, UserData
+from routine_bot.models import ChatData, EventData, UpdateData
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,20 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 
 # ------------------------------ Util Functions ------------------------------ #
+
+
+@ttl_cache(maxsize=None, ttl=600)
+def get_user_profile(user_id: str) -> dict[str, str]:
+    url = f"https://api.line.me/v2/bot/profile/{user_id}"
+    headers = {"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"}
+
+    try:
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to fetch user profile: {e}")
+        return {}
 
 
 def sanitize_msg(msg: str) -> str:
@@ -83,7 +99,7 @@ def validate_event_name(event_name: str) -> str | None:
     return None
 
 
-def parse_reminder_cycle(msg: str) -> tuple[int, str] | None:
+def parse_event_cycle(msg: str) -> tuple[int, str] | None:
     try:
         value, unit = msg.split(" ", maxsplit=1)
     except ValueError:
@@ -126,17 +142,17 @@ def handle_new_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection) ->
         logger.debug("Text input is not expected at current step")
         return NewEventMsg.invalid_input_for_start_date(chat.payload)
 
-    elif chat.current_step == NewEventSteps.INPUT_TOGGLE_REMINDER:
-        logger.info("Processing toggle reminder input")
+    elif chat.current_step == NewEventSteps.INPUT_ENABLE_REMINDER:
+        logger.info("Processing enable reminder input")
         if msg == "設定提醒":
-            chat.payload["reminder"] = True
-            logger.info("Added to chat payload: reminder=True")
+            chat.payload["reminder_enabled"] = True
+            logger.info("Added to chat payload: reminder_enabled=True")
             db.set_chat_payload(chat.chat_id, chat.payload, conn)
-            db.set_chat_current_step(chat.chat_id, NewEventSteps.INPUT_REMINDER_CYCLE.value, conn)
-            return NewEventMsg.prompt_for_reminder_cycle(chat.payload)
+            db.set_chat_current_step(chat.chat_id, NewEventSteps.INPUT_EVENT_CYCLE.value, conn)
+            return NewEventMsg.prompt_for_event_cycle(chat.payload)
         elif msg == "不設定提醒":
-            chat.payload["reminder"] = False
-            logger.info("Added to chat payload: reminder=False")
+            chat.payload["reminder_enabled"] = False
+            logger.info("Added to chat payload: reminder_enabled=False")
             db.set_chat_current_step(chat.chat_id, None, conn)
             db.set_chat_status(chat.chat_id, ChatStatus.COMPLETED.value, conn)
             logger.info(f"Chat completed: {chat.chat_id}")
@@ -147,7 +163,7 @@ def handle_new_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection) ->
                 event_name=chat.payload["event_name"],
                 user_id=chat.user_id,
                 last_done_at=datetime.fromisoformat(chat.payload["start_date"]),
-                reminder=False,
+                reminder_enabled=False,
             )
             db.add_event(event, conn)
             update = UpdateData(
@@ -161,19 +177,19 @@ def handle_new_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection) ->
             db.increment_user_event_count(chat.user_id, by=1, conn=conn)
             return NewEventMsg.event_created_no_reminder(chat.payload)
         else:
-            logger.debug(f"Invalid reminder input: {msg}")
-            return NewEventMsg.invalid_input_for_toggle_reminder(chat.payload)
+            logger.debug(f"Invalid enable reminder input: {msg}")
+            return NewEventMsg.invalid_input_for_enable_reminder(chat.payload)
 
-    elif chat.current_step == NewEventSteps.INPUT_REMINDER_CYCLE:
-        logger.info("Processing reminder cycle input")
+    elif chat.current_step == NewEventSteps.INPUT_EVENT_CYCLE:
+        logger.info("Processing event cycle input")
         if msg.lower() == "example":
-            logger.info("Return reminder cycle example")
-            return NewEventMsg.reminder_cycle_example()
-        if parse_reminder_cycle(msg) is None:
-            logger.info(f"Invalid reminder cycle input: {msg}")
-            return NewEventMsg.invalid_input_for_reminder_cycle(chat.payload)
-        chat.payload["reminder_cycle"] = msg
-        increment, unit = parse_reminder_cycle(msg)
+            logger.info("Return event cycle example")
+            return NewEventMsg.event_cycle_example()
+        if parse_event_cycle(msg) is None:
+            logger.info(f"Invalid event cycle input: {msg}")
+            return NewEventMsg.invalid_input_for_event_cycle(chat.payload)
+        chat.payload["event_cycle"] = msg
+        increment, unit = parse_event_cycle(msg)
         start_date = datetime.fromisoformat(chat.payload["start_date"])
 
         if unit == CycleUnit.DAY:
@@ -182,10 +198,10 @@ def handle_new_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection) ->
             offset = relativedelta(weeks=+increment)
         elif unit == CycleUnit.MONTH:
             offset = relativedelta(months=+increment)
-        next_reminder = start_date + offset
-        logger.info(f"Added to chat payload: reminder_cycle='{chat.payload['reminder_cycle']}'")
-        logger.info(f"Next reminder: {next_reminder.strftime('%Y-%m-%d')}")
-        db.set_chat_payload(chat.payload, None, conn)
+        next_due_at = start_date + offset
+        logger.info(f"Added to chat payload: event_cycle='{chat.payload['event_cycle']}'")
+        logger.info(f"Next due at: {next_due_at.strftime('%Y-%m-%d')}")
+        db.set_chat_payload(chat.chat_id, chat.payload, conn)
         db.set_chat_current_step(chat.chat_id, None, conn)
         db.set_chat_status(chat.chat_id, ChatStatus.COMPLETED.value, conn)
         logger.info(f"Chat completed: {chat.chat_id}")
@@ -196,9 +212,9 @@ def handle_new_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection) ->
             event_name=chat.payload["event_name"],
             user_id=chat.user_id,
             last_done_at=datetime.fromisoformat(chat.payload["start_date"]),
-            reminder=True,
-            reminder_cycle=chat.payload["reminder_cycle"],
-            next_reminder=next_reminder,
+            reminder_enabled=True,
+            event_cycle=chat.payload["event_cycle"],
+            next_due_at=next_due_at,
         )
         db.add_event(event, conn)
         update = UpdateData(
@@ -213,7 +229,7 @@ def handle_new_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection) ->
         return NewEventMsg.event_created_with_reminder(chat.payload)
 
 
-def handle_find_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection):
+def handle_find_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection) -> Message:
     if chat.current_step == FindEventSteps.INPUT_NAME:
         logger.info("Processing event name input")
         event_name = msg
@@ -221,7 +237,7 @@ def handle_find_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection):
         error_msg = validate_event_name(event_name)
         if error_msg is not None:
             logger.info(f"Invalid event name input: {event_name}")
-            return error_msg
+            return TextMessage(text=error_msg)
         event_id = db.get_event_id(chat.user_id, event_name, conn)
         if event_id is None:
             logger.info(f"Event name not found: {event_name}")
@@ -230,14 +246,14 @@ def handle_find_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection):
         logger.info(f"Event name input: {event_name}")
         logger.info(f"Event found: {event_id}")
         event = db.get_event(event_id, conn)
-        recent_update_times = db.get_event_recent_update_times(event_id, conn)
+        recent_update_times = db.list_event_recent_update_times(event_id, conn)
         db.set_chat_current_step(chat.chat_id, None, conn)
         db.set_chat_status(chat.chat_id, ChatStatus.COMPLETED.value, conn)
         logger.info(f"Chat completed: {chat.chat_id}")
         return FindEventMsg.format_event_summary(event, recent_update_times)
 
 
-def create_new_chat(command: str, user_id: str, conn: psycopg.Connection) -> str:
+def create_new_chat(command: str, user_id: str, conn: psycopg.Connection) -> Message:
     chat_id = str(uuid.uuid4())
     if command == Command.NEW:
         user = db.get_user(user_id, conn)
@@ -265,14 +281,14 @@ def create_new_chat(command: str, user_id: str, conn: psycopg.Connection) -> str
         return FindEventMsg.prompt_for_event_name()
 
 
-def handle_ongoing_chat(msg: str, chat: ChatData, conn: psycopg.Connection) -> str:
+def handle_ongoing_chat(msg: str, chat: ChatData, conn: psycopg.Connection) -> Message:
     if chat.chat_type == ChatType.NEW_EVENT:
         return handle_new_event_chat(msg, chat, conn)
     if chat.chat_type == ChatType.FIND_EVENT:
         return handle_find_event_chat(msg, chat, conn)
 
 
-def get_reply_message_from_text(msg: str, user_id: str) -> Message:
+def get_reply_message(msg: str, user_id: str) -> Message:
     logger.debug(f"Message received: {msg}")
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
         ongoing_chat_id = db.get_ongoing_chat_id(user_id, conn)
@@ -308,23 +324,13 @@ def handle_user_added(event: FollowEvent) -> None:
     user_id = event.source.user_id
 
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
-        if not db.is_user_exists(user_id, conn):
-            resp = requests.get(
-                f"https://api.line.me/v2/bot/profile/{user_id}",
-                headers={"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"},
-            )
-            user_info = resp.json()
-            display_name = user_info.get("displayName")
-            picture_url = user_info.get("pictureUrl")
+        if not db.user_exists(user_id, conn):
             logger.info(f"Added by: {user_id}")
-            logger.info(f"Display name: {display_name}")
-            db.add_user(user_id, display_name, picture_url, conn)
+            db.add_user(user_id, conn)
         else:
             logger.info(f"Unblocked by: {user_id}")
             db.set_user_activeness(user_id, True, conn)
-            events = db.get_all_events_by_user(user_id, conn)
-            for event_id in events:
-                db.set_event_activeness(event_id, True, conn)
+            db.set_event_activeness_by_user(user_id, True, conn)
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
@@ -336,20 +342,18 @@ def handle_user_added(event: FollowEvent) -> None:
 @handler.add(UnfollowEvent)
 def handle_user_blocked(event: UnfollowEvent) -> None:
     user_id = event.source.user_id
+    logger.info(f"Blocked by: {user_id}")
 
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
-        if not db.is_user_exists(user_id, conn):
-            logger.warning(f"Blocked by user not found in database: {user_id}")
+        if not db.user_exists(user_id, conn):
+            logger.warning("User not found in database")
         else:
-            logger.info(f"Blocked by: {user_id}")
             db.set_user_activeness(user_id, False, conn)
-            events = db.get_all_events_by_user(user_id, conn)
-            for event_id in events:
-                db.set_event_activeness(event_id, False, conn)
+            db.set_event_activeness_by_user(user_id, False, conn)
 
 
 @handler.add(PostbackEvent)
-def handle_postback(event: PostbackEvent):
+def handle_postback(event: PostbackEvent) -> None:
     logger.info(f"Postback data: {event.postback.data}")
     logger.info(f"Postback params: {event.postback.params}")
     chat_id = event.postback.data
@@ -361,23 +365,23 @@ def handle_postback(event: PostbackEvent):
             start_date = datetime.strptime(event.postback.params["date"], "%Y-%m-%d")
             start_date = start_date.replace(tzinfo=TZ_TAIPEI)
             chat.payload["start_date"] = start_date.isoformat()  # datetime is not JSON serializable
-            chat.current_step = NewEventSteps.INPUT_TOGGLE_REMINDER
+            chat.current_step = NewEventSteps.INPUT_ENABLE_REMINDER
             logger.info(f"Added to chat payload: start_date='{chat.payload['start_date']}'")
             db.set_chat_payload(chat.chat_id, chat.payload, conn)
-            db.set_chat_current_step(chat.chat_id, NewEventSteps.INPUT_TOGGLE_REMINDER.value, conn)
-            reply_message = NewEventMsg.prompt_for_toggle_reminder(chat.payload)
+            db.set_chat_current_step(chat.chat_id, NewEventSteps.INPUT_ENABLE_REMINDER.value, conn)
+            reply_msg = NewEventMsg.prompt_for_toggle_reminder(chat.payload)
         else:
             return None
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message(ReplyMessageRequest(reply_token=event.reply_token, messages=[reply_message]))
+        line_bot_api.reply_message(ReplyMessageRequest(reply_token=event.reply_token, messages=[reply_msg]))
 
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_text_message(event: MessageEvent) -> None:
     msg = sanitize_msg(event.message.text)
-    reply_message = get_reply_message_from_text(msg=msg, user_id=event.source.user_id)
+    reply_msg = get_reply_message(msg=msg, user_id=event.source.user_id)
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message(ReplyMessageRequest(reply_token=event.reply_token, messages=[reply_message]))
+        line_bot_api.reply_message(ReplyMessageRequest(reply_token=event.reply_token, messages=[reply_msg]))
