@@ -15,7 +15,7 @@ from routine_bot.db import (
     list_overdue_shared_events_by_user,
 )
 from routine_bot.handlers import configuration, get_user_profile, handler
-from routine_bot.messages import ReminderMsg
+from routine_bot.messages import ErrorMsg, ReminderMsg
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
@@ -90,11 +90,16 @@ async def run_reminder(request: Request):
         line_bot_api = MessagingApi(api_client)
         time_slot = datetime.now(TZ_TAIPEI).replace(minute=0, second=0, microsecond=0, hour=0).time()
         users = list_active_users_by_notification_slot(time_slot, conn)
-        for user_id in users:
-            logger.info(f"Sending reminders for user: {user_id}")
-            send_reminders_for_user_owned_events(user_id, line_bot_api, conn)
-            send_reminders_for_shared_events(user_id, line_bot_api, conn)
-            logger.info(f"Finished sending reminders for user: {user_id}")
+        for user in users:
+            if user.is_limited:
+                logger.info("Failed to send reminders: reached max events allowed")
+                error_msg = ErrorMsg.reminder_disabled()
+                line_bot_api.push_message(PushMessageRequest(to=user.user_id, messages=[error_msg]))
+                continue
+            logger.info(f"Sending reminders for user: {user.user_id}")
+            send_reminders_for_user_owned_events(user.user_id, line_bot_api, conn)
+            send_reminders_for_shared_events(user.user_id, line_bot_api, conn)
+            logger.info(f"Finished sending reminders for user: {user.user_id}")
     logger.info("Reminder process completed")
 
     return Response(status_code=status.HTTP_200_OK)

@@ -50,13 +50,13 @@ def flex_bubble_template(title: str, lines: list[str]) -> FlexBubble:
 def parse_time_delta(timedelta_: relativedelta) -> str:
     time_diff = ""
     if timedelta_.years:
-        time_diff = f"{timedelta_.years}年"
+        time_diff = f"{timedelta_.years} 年"
     if timedelta_.months:
-        time_diff = f"{time_diff} {timedelta_.months}個月"
+        time_diff = f"{time_diff} {timedelta_.months} 個月"
     if timedelta_.weeks:
-        time_diff = f"{time_diff} {timedelta_.weeks}週"
+        time_diff = f"{time_diff} {timedelta_.weeks} 週"
     if timedelta_.days:
-        time_diff = f"{time_diff} {timedelta_.days}日"
+        time_diff = f"{time_diff} {timedelta_.days} 日"
     return time_diff.lstrip()
 
 
@@ -263,7 +263,7 @@ class ErrorMsg:
                 f"🔒 你已超過免費方案的 {FREE_PLAN_MAX_EVENTS} 個事件上限",
                 "💡 你可以選擇：",
                 "🗑️ 刪除超量事件，恢復提醒功能",
-                "🚀 升級至 premium，享受提醒功能無上限",
+                "🚀 升級至 premium，享受提醒無上限",
             ],
         )
         msg = FlexMessage(altText="🔕 提醒功能已停用，請刪除超量事件或升級至 premium", contents=bubble)

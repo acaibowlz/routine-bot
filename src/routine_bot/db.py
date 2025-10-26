@@ -286,7 +286,7 @@ def user_exists(user_id: str, conn: psycopg.Connection) -> bool:
         return cur.fetchone() is not None
 
 
-def list_active_users_by_notification_slot(time_slot: time, conn: psycopg.Connection) -> list[str]:
+def list_active_users_by_notification_slot(time_slot: time, conn: psycopg.Connection) -> list[UserData]:
     if not isinstance(time_slot, time):
         raise TypeError("Time slot must be a datetime.time object")
     if time_slot.minute or time_slot.second or time_slot.microsecond:
@@ -296,7 +296,13 @@ def list_active_users_by_notification_slot(time_slot: time, conn: psycopg.Connec
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT user_id
+            SELECT
+                user_id,
+                notification_slot,
+                event_count,
+                is_premium,
+                premium_until,
+                is_active
             FROM users
             WHERE notification_slot = %s
             AND is_active = TRUE
@@ -308,7 +314,7 @@ def list_active_users_by_notification_slot(time_slot: time, conn: psycopg.Connec
             logger.info(f"{len(result)} active users found within current time slot")
         else:
             logger.info("No active user found within current time slot")
-        return [row[0] for row in result]
+        return [UserData(*row) for row in result]
 
 
 def increment_user_event_count(user_id: str, by: int, conn: psycopg.Connection):
