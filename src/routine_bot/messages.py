@@ -63,7 +63,7 @@ def parse_time_delta(timedelta_: relativedelta) -> str:
 # ----------------------------- Message Builders ------------------------------ #
 
 
-class NewEventMsg:
+class NewEvent:
     @staticmethod
     def prompt_for_event_name() -> TextMessage:
         return TextMessage(text="🎯 請輸入欲新增的事件名稱（限 2 至 20 字元）")
@@ -187,7 +187,7 @@ class NewEventMsg:
         return msg
 
 
-class FindEventMsg:
+class FindEvent:
     @staticmethod
     def prompt_for_event_name() -> TextMessage:
         return TextMessage(text="🎯 請輸入欲查詢的事件名稱")
@@ -220,7 +220,7 @@ class FindEventMsg:
         return msg
 
 
-class ErrorMsg:
+class Error:
     @staticmethod
     def unrecognized_command() -> TextMessage:
         return TextMessage(text="指令無法辨識🤣 請再試一次😌")
@@ -270,13 +270,13 @@ class ErrorMsg:
         return msg
 
 
-class GreetingMsg:
+class Greeting:
     @staticmethod
     def random() -> TextMessage:
         return TextMessage(text="hello!")
 
 
-class AbortMsg:
+class Abort:
     @staticmethod
     def no_ongoing_chat() -> TextMessage:
         return TextMessage(text="沒有進行中的操作可以取消🤣")
@@ -286,7 +286,7 @@ class AbortMsg:
         return TextMessage(text="已中止目前的操作🙏\n請重新輸入新的指令😉")
 
 
-class ReminderMsg:
+class Reminder:
     @staticmethod
     def user_owned_event(event: EventData) -> FlexMessage:
         overdue_by = relativedelta(datetime.now(TZ_TAIPEI), event.next_due_at)

@@ -11,7 +11,7 @@ class Command(StrEnum):
     DELETE = "/delete"
     VIEW = "/view"
     ABORT = "/abort"
-    SETTING = "/setting"
+    SETTINGS = "/settings"
     # premium features
     UPGRADE = "/upgrade"
     SHARE = "/share"
@@ -29,6 +29,7 @@ class ChatType(StrEnum):
     UPDATE_EVENT = auto()
     EDIT_EVENT = auto()
     DELETE_EVENT = auto()
+    USER_SETTINGS = auto()
 
 
 class ChatStatus(StrEnum):
@@ -58,3 +59,15 @@ class NewEventSteps(StrEnum):
 
 class FindEventSteps(StrEnum):
     INPUT_NAME = auto()
+
+
+# ------------------------------- User Settings ------------------------------- #
+
+
+class UserSettingsSteps(StrEnum):
+    INPUT_OPTION = auto()
+    INPUT_NEW_VALUE = auto()
+
+
+class UserSettingsOptions(StrEnum):
+    NOTIFICATION_SLOT = auto()
