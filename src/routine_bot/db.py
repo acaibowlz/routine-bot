@@ -24,13 +24,13 @@ def create_users_table(cur: psycopg.Cursor) -> None:
         Unique identifier for each user (corresponds to the LINE user ID).
     - created_at :
         Timestamp when the user record was created.
+    - event_count :
+        Total number of events owned by the user.
+        Users on free plan can have up to 5 events.
     - notification_slot :
         The user's preferred daily notification hour (on the hour, HH:00).
         Used to determine when daily reminder jobs should be sent.
         This value represents a repeating time slot every day, not a specific date-time.
-    - event_count :
-        Total number of events owned by the user.
-        Users on free plan can have up to 5 events.
     - is_premium :
         Indicates whether the user is subscribed to a premium plan.
     - premium_until :
@@ -49,8 +49,8 @@ def create_users_table(cur: psycopg.Cursor) -> None:
         CREATE TABLE users (
             user_id TEXT PRIMARY KEY,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            notification_slot TIME NOT NULL DEFAULT '00:00',
             event_count INTEGER NOT NULL DEFAULT 0,
+            notification_slot TIME NOT NULL DEFAULT '00:00',
             is_premium BOOLEAN NOT NULL DEFAULT FALSE,
             premium_until TIMESTAMPTZ,
             is_active BOOLEAN NOT NULL DEFAULT TRUE
@@ -106,18 +106,18 @@ def create_events_table(cur: psycopg.Cursor) -> None:
         Unique identifier for each event.
     - created_at :
         Timestamp indicating when the event record was created.
-    - event_name :
-        Name of the event.
     - user_id :
         Identifier of the user who owns the event.
-    - last_done_at :
-        Timestamp of the most recent time the user completed the event.
-        Event completion timestamps are stored at day-level precision,
-        with the time set to 00:00 (UTC+8).
+    - event_name :
+        Name of the event.
     - reminder_enabled :
         Indicates whether reminders are enabled for the event.
     - event_cycle :
         Specifies the recurrence interval of the event (e.g., daily, weekly).
+    - last_done_at :
+        Timestamp of the most recent time the user completed the event.
+        Event completion timestamps are stored at day-level precision,
+        with the time set to 00:00 (UTC+8).
     - next_due_at :
         If the current time is later than this timestamp, the event is considered due,
         and the bot will send the reminder on its next scheduled run.
@@ -134,11 +134,11 @@ def create_events_table(cur: psycopg.Cursor) -> None:
         CREATE TABLE events (
             event_id TEXT PRIMARY KEY,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            event_name TEXT NOT NULL,
             user_id TEXT NOT NULL REFERENCES users(user_id),
-            last_done_at TIMESTAMPTZ NOT NULL,
+            event_name TEXT NOT NULL,
             reminder_enabled BOOLEAN NOT NULL,
             event_cycle TEXT,
+            last_done_at TIMESTAMPTZ NOT NULL,
             next_due_at TIMESTAMPTZ,
             share_count INTEGER NOT NULL DEFAULT 0,
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -247,7 +247,7 @@ def add_user(user_id: str, conn: psycopg.Connection) -> None:
             (user_id,),
         )
     conn.commit()
-    logger.info(f"User inserted: {user_id}")
+    logger.debug(f"User inserted: {user_id}")
 
 
 def get_user(user_id: str, conn: psycopg.Connection) -> UserData | None:
@@ -256,8 +256,8 @@ def get_user(user_id: str, conn: psycopg.Connection) -> UserData | None:
             """
             SELECT
                 user_id,
-                notification_slot,
                 event_count,
+                notification_slot,
                 is_premium,
                 premium_until,
                 is_active
@@ -298,8 +298,8 @@ def list_active_users_by_notification_slot(time_slot: time, conn: psycopg.Connec
             """
             SELECT
                 user_id,
-                notification_slot,
                 event_count,
+                notification_slot,
                 is_premium,
                 premium_until,
                 is_active
@@ -328,7 +328,7 @@ def increment_user_event_count(user_id: str, by: int, conn: psycopg.Connection):
             (by, user_id),
         )
     conn.commit()
-    logger.info(f"User event count updated by {by}")
+    logger.debug(f"User event_count incremented by {by}: {user_id}")
 
 
 def set_user_activeness(user_id: str, to: bool, conn: psycopg.Connection) -> None:
@@ -342,7 +342,21 @@ def set_user_activeness(user_id: str, to: bool, conn: psycopg.Connection) -> Non
             (to, user_id),
         )
     conn.commit()
-    logger.info(f"User activeness updated: {user_id}")
+    logger.debug(f"User is_active updated: {user_id}")
+
+
+def set_user_notification_slot(user_id: str, time_slot: time, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE users
+            SET notification_slot = %s
+            WHERE user_id = %s
+            """,
+            (time_slot, user_id),
+        )
+    conn.commit()
+    logger.debug(f"User notification_slot updated: {user_id}")
 
 
 # -------------------------------- Chat Table -------------------------------- #
@@ -361,11 +375,11 @@ def add_chat(chat: ChatData, conn: psycopg.Connection) -> None:
                 chat.chat_type,
                 chat.current_step,
                 Json(chat.payload),
-                ChatStatus.ONGOING.value,
+                chat.status,
             ),
         )
     conn.commit()
-    logger.info(f"Chat inserted: {chat.chat_id}")
+    logger.debug(f"Chat inserted: {chat.chat_id}")
 
 
 def get_chat(chat_id: str, conn: psycopg.Connection) -> ChatData | None:
@@ -411,11 +425,10 @@ def set_chat_current_step(chat_id: str, current_step: str | None, conn: psycopg.
             (current_step, chat_id),
         )
     conn.commit()
-    logger.info(f"Chat current_step updated: {chat_id}")
+    logger.debug(f"Chat current_step updated: {chat_id}")
 
 
 def set_chat_payload(chat_id: str, payload: dict, conn: psycopg.Connection) -> None:
-    print(payload)
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -426,7 +439,7 @@ def set_chat_payload(chat_id: str, payload: dict, conn: psycopg.Connection) -> N
             (Json(payload), chat_id),
         )
     conn.commit()
-    logger.info(f"Chat payload updated: {chat_id}")
+    logger.debug(f"Chat payload updated: {chat_id}")
 
 
 def set_chat_status(chat_id: str, status: str, conn: psycopg.Connection) -> None:
@@ -440,7 +453,7 @@ def set_chat_status(chat_id: str, status: str, conn: psycopg.Connection) -> None
             (status, chat_id),
         )
     conn.commit()
-    logger.info(f"Chat status updated: {chat_id}")
+    logger.debug(f"Chat status updated: {chat_id}")
 
 
 # -------------------------------- Event Table ------------------------------- #
@@ -452,27 +465,31 @@ def add_event(event: EventData, conn: psycopg.Connection) -> None:
             """
             INSERT INTO events (
                 event_id,
-                event_name,
                 user_id,
-                last_done_at,
+                event_name,
                 reminder_enabled,
                 event_cycle,
-                next_due_at
+                last_done_at,
+                next_due_at,
+                share_count,
+                is_active
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 event.event_id,
-                event.event_name,
                 event.user_id,
-                event.last_done_at,
+                event.event_name,
                 event.reminder_enabled,
                 event.event_cycle,
+                event.last_done_at,
                 event.next_due_at,
+                0,
+                True,
             ),
         )
     conn.commit()
-    logger.info(f"Event inserted: {event.event_id}")
+    logger.debug(f"Event inserted: {event.event_id}")
 
 
 def get_event(event_id: str, conn: psycopg.Connection) -> EventData | None:
@@ -481,13 +498,14 @@ def get_event(event_id: str, conn: psycopg.Connection) -> EventData | None:
             """
             SELECT
                 event_id,
-                event_name,
                 user_id,
-                last_done_at,
+                event_name,
                 reminder_enabled,
                 event_cycle,
+                last_done_at,
                 next_due_at,
-                share_count
+                share_count,
+                is_active
             FROM events
             WHERE event_id = %s
             """,
@@ -525,13 +543,14 @@ def list_overdue_events_by_user(user_id: str, conn: psycopg.Connection) -> list[
             """
             SELECT
                 event_id,
-                event_name,
                 user_id,
-                last_done_at,
+                event_name,
                 reminder_enabled,
                 event_cycle,
+                last_done_at,
                 next_due_at,
-                share_count
+                share_count,
+                is_active
             FROM events
             WHERE user_id = %s
             AND reminder_enabled = TRUE
@@ -554,7 +573,7 @@ def set_event_activeness(event_id: str, to: bool, conn: psycopg.Connection) -> N
             (to, event_id),
         )
     conn.commit()
-    logger.info(f"Event activeness updated: {event_id}")
+    logger.debug(f"Event is_active updated: {event_id}")
 
 
 def set_event_activeness_by_user(user_id: str, to: bool, conn: psycopg.Connection):
@@ -590,7 +609,7 @@ def add_update(update: UpdateData, conn: psycopg.Connection) -> None:
             ),
         )
     conn.commit()
-    logger.info(f"Update inserted: {update.update_id}")
+    logger.debug(f"Update inserted: {update.update_id}")
 
 
 def list_event_recent_update_times(event_id: str, conn: psycopg.Connection, limit: int = 10) -> list[datetime]:
@@ -628,7 +647,7 @@ def add_share(share: ShareData, conn: psycopg.Connection) -> None:
             ),
         )
     conn.commit()
-    logger.info(f"Share inserted: {share.share_id}")
+    logger.debug(f"Share inserted: {share.share_id}")
 
 
 def list_shared_events_by_user(user_id: str, conn: psycopg.Connection) -> list[EventData]:
@@ -641,13 +660,14 @@ def list_overdue_shared_events_by_user(user_id: str, conn: psycopg.Connection) -
             """
             SELECT
                 e.event_id,
-                e.event_name,
                 e.user_id,
-                e.last_done_at,
+                e.event_name,
                 e.reminder_enabled,
                 e.event_cycle,
+                e.last_done_at,
                 e.next_due_at,
-                e.share_count
+                e.share_count,
+                e.is_active
             FROM events e
             WHERE e.reminder_enabled = TRUE
             AND e.next_due_at <= NOW()

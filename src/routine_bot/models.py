@@ -8,8 +8,8 @@ from routine_bot.enums import ChatStatus
 @dataclass
 class UserData:
     user_id: str
-    notification_slot: time
     event_count: int
+    notification_slot: time
     is_premium: bool
     premium_until: datetime | None
     is_active: bool
@@ -33,20 +33,21 @@ class ChatData:
     user_id: str
     chat_type: str
     current_step: str | None
-    payload: dict = field(default_factory=dict)
-    status: str = ChatStatus.ONGOING.value
+    payload: dict
+    status: str
 
 
 @dataclass
 class EventData:
     event_id: str
-    event_name: str
     user_id: str
-    last_done_at: datetime
+    event_name: str
     reminder_enabled: bool
-    event_cycle: str | None = None
-    next_due_at: datetime | None = None
-    share_count: int = 0
+    event_cycle: str | None
+    last_done_at: datetime
+    next_due_at: datetime | None
+    share_count: int
+    is_active: bool
 
 
 @dataclass

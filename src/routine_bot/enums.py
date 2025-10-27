@@ -52,9 +52,9 @@ SUPPORTED_UNITS = {unit.value for unit in CycleUnit}
 
 class NewEventSteps(StrEnum):
     INPUT_NAME = auto()
-    INPUT_START_DATE = auto()
-    INPUT_ENABLE_REMINDER = auto()
-    INPUT_EVENT_CYCLE = auto()
+    SELECT_START_DATE = auto()
+    ENABLE_REMINDER = auto()
+    SELECT_EVENT_CYCLE = auto()
 
 
 class FindEventSteps(StrEnum):
@@ -65,8 +65,8 @@ class FindEventSteps(StrEnum):
 
 
 class UserSettingsSteps(StrEnum):
-    INPUT_OPTION = auto()
-    INPUT_NEW_VALUE = auto()
+    SELECT_OPTION = auto()
+    SELECT_NEW_NOTIFICATION_SLOT = auto()
 
 
 class UserSettingsOptions(StrEnum):

@@ -83,7 +83,7 @@ async def run_reminder(request: Request):
     logger.info("Starting the reminder process")
     with psycopg.connect(conninfo=DATABASE_URL) as conn, ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
-        time_slot = datetime.now(TZ_TAIPEI).replace(minute=0, second=0, microsecond=0, hour=0).time()
+        time_slot = datetime.now(TZ_TAIPEI).replace(minute=0, second=0, microsecond=0).time()
         users = db.list_active_users_by_notification_slot(time_slot, conn)
         for user in users:
             if user.is_limited:

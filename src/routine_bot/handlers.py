@@ -3,6 +3,7 @@ import re
 import unicodedata
 import uuid
 from datetime import datetime
+from pprint import pformat
 
 import psycopg
 import requests
@@ -12,9 +13,11 @@ from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import (
     ApiClient,
     Configuration,
+    FlexMessage,
     Message,
     MessagingApi,
     ReplyMessageRequest,
+    TemplateMessage,
     TextMessage,
 )
 from linebot.v3.webhooks import FollowEvent, MessageEvent, PostbackEvent, TextMessageContent, UnfollowEvent
@@ -53,7 +56,7 @@ def get_user_profile(user_id: str) -> dict[str, str]:
         return {}
 
 
-def sanitize_msg(msg: str) -> str:
+def sanitize_msg(text: str) -> str:
     """
     Cleans and normalizes user input text for consistent downstream processing.
 
@@ -63,9 +66,9 @@ def sanitize_msg(msg: str) -> str:
     3. Collapse multiple spaces/newlines
     4. Remove invisible control characters
     """
-    if not msg:
+    if not text:
         return ""
-    text = unicodedata.normalize("NFKC", msg)
+    text = unicodedata.normalize("NFKC", text)
     text = text.strip()
     text = re.sub(r"[\t\r\n]+", " ", text)
     text = re.sub(r" {2,}", " ", text)
@@ -89,9 +92,9 @@ def validate_event_name(event_name: str) -> str | None:
     return None
 
 
-def parse_event_cycle(msg: str) -> tuple[int, str] | None:
+def parse_event_cycle(text: str) -> tuple[int, str] | None:
     try:
-        value, unit = msg.split(" ", maxsplit=1)
+        value, unit = text.split(" ", maxsplit=1)
     except ValueError:
         return None
     try:
@@ -103,219 +106,354 @@ def parse_event_cycle(msg: str) -> tuple[int, str] | None:
     return value, unit
 
 
+# ------------------------------ Step Processors ------------------------------ #
+
+
+def process_new_event_input_name(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
+    logger.info("Processing new event name input")
+    event_name = text
+
+    # validate event name
+    error_msg = validate_event_name(event_name)
+    if error_msg is not None:
+        logger.info(f"Invalid event name input: {event_name}")
+        return TextMessage(text=error_msg)
+    if db.get_event_id(chat.user_id, event_name, conn) is not None:
+        logger.info(f"Duplicated event name input: {event_name}")
+        return msg.Error.event_name_duplicated(event_name)
+
+    chat.payload["event_name"] = event_name
+    chat.payload["chat_id"] = chat.chat_id
+    chat.current_step = enums.NewEventSteps.SELECT_START_DATE.value
+    db.set_chat_payload(chat.chat_id, chat.payload, conn)
+    db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    logger.info(f"Added to payload: event_name={event_name}")
+    logger.info(f"Added to payload: chat_id={chat.chat_id}")
+    logger.info(f"Current step updated: {chat.current_step}")
+    return msg.NewEvent.select_start_date(chat.payload)
+
+
+def process_new_event_select_start_date(postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection):
+    logger.info("Processing start date selection")
+    start_date = datetime.strptime(postback.postback.params["date"], "%Y-%m-%d")
+    start_date = start_date.replace(tzinfo=TZ_TAIPEI)
+    chat.payload["start_date"] = start_date.isoformat()  # datetime is not JSON serializable
+    chat.current_step = enums.NewEventSteps.ENABLE_REMINDER
+    logger.info(f"Added to payload: start_date={chat.payload['start_date']}")
+    db.set_chat_payload(chat.chat_id, chat.payload, conn)
+    db.set_chat_current_step(chat.chat_id, enums.NewEventSteps.ENABLE_REMINDER.value, conn)
+    return msg.NewEvent.enable_reminder(chat.payload)
+
+
+def process_new_event_enable_reminder(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
+    logger.info("Processing enable reminder")
+    chat.payload["reminder_enabled"] = True
+    chat.current_step = enums.NewEventSteps.SELECT_EVENT_CYCLE.value
+    db.set_chat_payload(chat.chat_id, chat.payload, conn)
+    db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    logger.info("Added to payload: reminder_enabled=True")
+    logger.info(f"Current step updated: {chat.current_step}")
+    return msg.NewEvent.select_event_cycle(chat.payload)
+
+
+def process_new_event_disable_reminder(chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
+    logger.info("Processing disable reminder")
+    chat.payload["reminder_enabled"] = False
+    chat.current_step = None
+    chat.status = enums.ChatStatus.COMPLETED.value
+    db.set_chat_payload(chat.chat_id, chat.payload, conn)
+    db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    db.set_chat_status(chat.chat_id, chat.status, conn)
+    logger.info("Added to payload: reminder_enabled=False")
+    logger.info(f"Current step updated: {chat.current_step}")
+    logger.info("Chat completed")
+
+    event_id = str(uuid.uuid4())
+    event = EventData(
+        event_id=event_id,
+        user_id=chat.user_id,
+        event_name=chat.payload["event_name"],
+        reminder_enabled=False,
+        event_cycle=None,
+        last_done_at=datetime.fromisoformat(chat.payload["start_date"]),
+        next_due_at=None,
+        share_count=0,
+        is_active=True,
+    )
+    db.add_event(event, conn)
+    logger.info("┌── New Event Created ────────────────")
+    logger.info(f"│ ID: {event_id}")
+    logger.info(f"│ User: {event.user_id}")
+    logger.info(f"│ Name: {event.event_name}")
+    logger.info(f"│ Reminder: {event.reminder_enabled}")
+    logger.info(f"│ Last Done: {event.last_done_at}")
+    logger.info("└─────────────────────────────────────")
+
+    update = UpdateData(
+        update_id=str(uuid.uuid4()),
+        event_id=event_id,
+        event_name=chat.payload["event_name"],
+        user_id=chat.user_id,
+        done_at=datetime.fromisoformat(chat.payload["start_date"]),
+    )
+    db.add_update(update, conn)
+    db.increment_user_event_count(chat.user_id, by=1, conn=conn)
+    return msg.NewEvent.event_created_no_reminder(chat.payload)
+
+
+def process_new_event_select_event_cycle(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
+    logger.info("Processing event cycle input")
+    if text.lower() == "example":
+        logger.info("Showing event cycle example")
+        return msg.NewEvent.event_cycle_example()
+    if parse_event_cycle(text) is None:
+        logger.info(f"Invalid event cycle input: {text}")
+        return msg.NewEvent.invalid_input_for_event_cycle(chat.payload)
+    chat.payload["event_cycle"] = text
+    increment, unit = parse_event_cycle(text)
+    start_date = datetime.fromisoformat(chat.payload["start_date"])
+
+    if unit == enums.CycleUnit.DAY:
+        offset = relativedelta(days=+increment)
+    elif unit == enums.CycleUnit.WEEK:
+        offset = relativedelta(weeks=+increment)
+    elif unit == enums.CycleUnit.MONTH:
+        offset = relativedelta(months=+increment)
+    next_due_at = start_date + offset
+
+    chat.payload["next_due_at"] = next_due_at.isoformat()
+    chat.current_step = None
+    chat.status = enums.ChatStatus.COMPLETED.value
+    db.set_chat_payload(chat.chat_id, chat.payload, conn)
+    db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    db.set_chat_status(chat.chat_id, chat.status, conn)
+    logger.info(f"Added to payload: next_due_at={next_due_at}")
+    logger.info(f"Current step updated: {chat.current_step}")
+    logger.info("Chat completed")
+
+    event_id = str(uuid.uuid4())
+    event = EventData(
+        event_id=event_id,
+        user_id=chat.user_id,
+        event_name=chat.payload["event_name"],
+        reminder_enabled=True,
+        event_cycle=chat.payload["event_cycle"],
+        last_done_at=start_date,
+        next_due_at=next_due_at,
+        share_count=0,
+        is_active=True,
+    )
+    db.add_event(event, conn)
+    logger.info("┌── New Event Created ────────────────")
+    logger.info(f"│ ID: {event_id}")
+    logger.info(f"│ User: {event.user_id}")
+    logger.info(f"│ Name: {event.event_name}")
+    logger.info(f"│ Reminder: {event.reminder_enabled}")
+    logger.info(f"│ Cycle: {event.event_cycle}")
+    logger.info(f"│ Last Done: {event.last_done_at}")
+    logger.info(f"│ Next Due: {event.next_due_at}")
+    logger.info("└─────────────────────────────────────")
+
+    update = UpdateData(
+        update_id=str(uuid.uuid4()),
+        event_id=event_id,
+        event_name=chat.payload["event_name"],
+        user_id=chat.user_id,
+        done_at=datetime.fromisoformat(chat.payload["start_date"]),
+    )
+    db.add_update(update, conn)
+    db.increment_user_event_count(chat.user_id, by=1, conn=conn)
+    return msg.NewEvent.event_created_with_reminder(chat.payload)
+
+
+def process_find_event_input_name(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
+    logger.info("Processing find event name input")
+    event_name = text
+
+    error_msg = validate_event_name(event_name)
+    if error_msg is not None:
+        logger.info(f"Invalid event name input: {event_name}")
+        return TextMessage(text=error_msg)
+    event_id = db.get_event_id(chat.user_id, event_name, conn)
+    if event_id is None:
+        logger.info(f"Event name not found: {event_name}")
+        return msg.Error.event_name_not_found(event_name)
+
+    event = db.get_event(event_id, conn)
+    recent_update_times = db.list_event_recent_update_times(event_id, conn)
+    logger.info("┌── Event Found ──────────────────────")
+    logger.info(f"│ ID: {event_id}")
+    logger.info(f"│ User: {event.user_id}")
+    logger.info(f"│ Name: {event_name}")
+    logger.info(f"│ Reminder: {event.reminder_enabled}")
+    logger.info(f"│ Cycle: {event.event_cycle}")
+    logger.info(f"│ Last Done: {event.last_done_at}")
+    logger.info(f"│ Next Due: {event.next_due_at}")
+    logger.info(f"│ Recent Updates: {len(recent_update_times)}")
+    logger.info("└─────────────────────────────────────")
+
+    chat.current_step = None
+    chat.status = enums.ChatStatus.COMPLETED.value
+    db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    db.set_chat_status(chat.chat_id, chat.status, conn)
+    logger.info(f"Current step updated: {chat.current_step}")
+    logger.info("Chat completed")
+    return msg.FindEvent.format_event_summary(event, recent_update_times)
+
+
+def prepare_user_settings_new_notification_selection(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
+    option = enums.UserSettingsOptions.NOTIFICATION_SLOT.value
+    user = db.get_user(chat.user_id, conn)
+    chat.payload["option"] = option
+    chat.payload["chat_id"] = chat.chat_id
+    chat.payload["current_slot"] = user.notification_slot.strftime("%H:%M")
+    chat.current_step = enums.UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT.value
+    db.set_chat_payload(chat.chat_id, chat.payload, conn)
+    db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    return msg.UserSettings.select_new_notification_slot(chat.payload)
+
+
+def process_user_settings_select_new_notification_slot(
+    postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection
+):
+    logger.info("Processing new notification slot selection")
+    if postback.postback.params["time"].split(":")[1] != "00":
+        return msg.UserSettings.invalid_notification_slot(chat.payload)
+    else:
+        time_slot = postback.postback.params["time"]
+        chat.payload["new_slot"] = time_slot
+        logger.info(f"Added to chat payload: new_slot='{chat.payload['new_slot']}'")
+        db.set_chat_payload(chat.chat_id, chat.payload, conn)
+        db.set_chat_current_step(chat.chat_id, None, conn)
+        db.set_chat_status(chat.chat_id, enums.ChatStatus.COMPLETED.value, conn)
+        logger.info(f"Chat completed: {chat.chat_id}")
+        time_slot = datetime.strptime(time_slot, "%H:%M")
+        db.set_user_notification_slot(chat.user_id, time_slot, conn)
+        return msg.UserSettings.notification_slot_updated(chat.payload)
+
+
 # ------------------------------ Chat Handlers ------------------------------- #
 
 
-def handle_new_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection) -> Message:
+def handle_new_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
     if chat.current_step == enums.NewEventSteps.INPUT_NAME:
-        logger.debug("Processing event name input")
-        event_name = msg
-
-        # validate event name
-        error_msg = validate_event_name(event_name)
-        if error_msg is not None:
-            logger.debug(f"Invalid event name input: {event_name}")
-            return TextMessage(text=error_msg)
-        if db.get_event_id(chat.user_id, event_name, conn) is not None:
-            logger.debug(f"Duplicated event name input: {event_name}")
-            return msg.Error.event_name_duplicated(event_name)
-
-        chat.payload["event_name"] = event_name
-        chat.payload["chat_id"] = chat.chat_id
-        logger.info(f"Added to chat payload: event_name='{event_name}'")
-        logger.info(f"Added to chat payload: chat_id='{chat.chat_id}'")
-        db.set_chat_payload(chat.chat_id, chat.payload, conn)
-        db.set_chat_current_step(chat.chat_id, enums.NewEventSteps.INPUT_START_DATE.value, conn)
-        return msg.NewEvent.prompt_for_start_date(chat.payload)
-
-    elif chat.current_step == enums.NewEventSteps.INPUT_START_DATE:
-        logger.debug("Text input is not expected at current step")
+        return process_new_event_input_name(text, chat, conn)
+    elif chat.current_step == enums.NewEventSteps.SELECT_START_DATE:
+        logger.info("Text input is not expected at current step")
         return msg.NewEvent.invalid_input_for_start_date(chat.payload)
-
-    elif chat.current_step == enums.NewEventSteps.INPUT_ENABLE_REMINDER:
-        logger.info("Processing enable reminder input")
-        if msg == "設定提醒":
-            chat.payload["reminder_enabled"] = True
-            logger.info("Added to chat payload: reminder_enabled=True")
-            db.set_chat_payload(chat.chat_id, chat.payload, conn)
-            db.set_chat_current_step(chat.chat_id, enums.NewEventSteps.INPUT_EVENT_CYCLE.value, conn)
-            return msg.NewEvent.prompt_for_event_cycle(chat.payload)
-        elif msg == "不設定提醒":
-            chat.payload["reminder_enabled"] = False
-            logger.info("Added to chat payload: reminder_enabled=False")
-            db.set_chat_current_step(chat.chat_id, None, conn)
-            db.set_chat_status(chat.chat_id, enums.ChatStatus.COMPLETED.value, conn)
-            logger.info(f"Chat completed: {chat.chat_id}")
-
-            event_id = str(uuid.uuid4())
-            event = EventData(
-                event_id=event_id,
-                event_name=chat.payload["event_name"],
-                user_id=chat.user_id,
-                last_done_at=datetime.fromisoformat(chat.payload["start_date"]),
-                reminder_enabled=False,
-            )
-            db.add_event(event, conn)
-            update = UpdateData(
-                update_id=str(uuid.uuid4()),
-                event_id=event_id,
-                event_name=chat.payload["event_name"],
-                user_id=chat.user_id,
-                done_at=datetime.fromisoformat(chat.payload["start_date"]),
-            )
-            db.add_update(update, conn)
-            db.increment_user_event_count(chat.user_id, by=1, conn=conn)
-            return msg.NewEvent.event_created_no_reminder(chat.payload)
+    elif chat.current_step == enums.NewEventSteps.ENABLE_REMINDER:
+        if text == "設定提醒":
+            return process_new_event_enable_reminder(chat, conn)
+        elif text == "不設定提醒":
+            return process_new_event_disable_reminder(chat, conn)
         else:
-            logger.debug(f"Invalid enable reminder input: {msg}")
+            logger.info(f"Invalid enable reminder input: {text}")
             return msg.NewEvent.invalid_input_for_enable_reminder(chat.payload)
-
-    elif chat.current_step == enums.NewEventSteps.INPUT_EVENT_CYCLE:
-        logger.info("Processing event cycle input")
-        if msg.lower() == "example":
-            logger.info("Return event cycle example")
-            return msg.NewEvent.event_cycle_example()
-        if parse_event_cycle(msg) is None:
-            logger.info(f"Invalid event cycle input: {msg}")
-            return msg.NewEvent.invalid_input_for_event_cycle(chat.payload)
-        chat.payload["event_cycle"] = msg
-        increment, unit = parse_event_cycle(msg)
-        start_date = datetime.fromisoformat(chat.payload["start_date"])
-
-        if unit == enums.CycleUnit.DAY:
-            offset = relativedelta(days=+increment)
-        elif unit == enums.CycleUnit.WEEK:
-            offset = relativedelta(weeks=+increment)
-        elif unit == enums.CycleUnit.MONTH:
-            offset = relativedelta(months=+increment)
-        next_due_at = start_date + offset
-        logger.info(f"Added to chat payload: event_cycle='{chat.payload['event_cycle']}'")
-        logger.info(f"Next due at: {next_due_at.strftime('%Y-%m-%d')}")
-        db.set_chat_payload(chat.chat_id, chat.payload, conn)
-        db.set_chat_current_step(chat.chat_id, None, conn)
-        db.set_chat_status(chat.chat_id, enums.ChatStatus.COMPLETED.value, conn)
-        logger.info(f"Chat completed: {chat.chat_id}")
-
-        event_id = str(uuid.uuid4())
-        event = EventData(
-            event_id=event_id,
-            event_name=chat.payload["event_name"],
-            user_id=chat.user_id,
-            last_done_at=datetime.fromisoformat(chat.payload["start_date"]),
-            reminder_enabled=True,
-            event_cycle=chat.payload["event_cycle"],
-            next_due_at=next_due_at,
-        )
-        db.add_event(event, conn)
-        update = UpdateData(
-            update_id=str(uuid.uuid4()),
-            event_id=event_id,
-            event_name=chat.payload["event_name"],
-            user_id=chat.user_id,
-            done_at=datetime.fromisoformat(chat.payload["start_date"]),
-        )
-        db.add_update(update, conn)
-        db.increment_user_event_count(chat.user_id, by=1, conn=conn)
-        return msg.NewEvent.event_created_with_reminder(chat.payload)
+    elif chat.current_step == enums.NewEventSteps.SELECT_EVENT_CYCLE:
+        return process_new_event_select_event_cycle(text, chat, conn)
 
 
-def handle_find_event_chat(msg: str, chat: ChatData, conn: psycopg.Connection) -> Message:
+def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
     if chat.current_step == enums.FindEventSteps.INPUT_NAME:
-        logger.info("Processing event name input")
-        event_name = msg
-
-        error_msg = validate_event_name(event_name)
-        if error_msg is not None:
-            logger.info(f"Invalid event name input: {event_name}")
-            return TextMessage(text=error_msg)
-        event_id = db.get_event_id(chat.user_id, event_name, conn)
-        if event_id is None:
-            logger.info(f"Event name not found: {event_name}")
-            return msg.Error.event_name_not_found(event_name)
-
-        logger.info(f"Event name input: {event_name}")
-        logger.info(f"Event found: {event_id}")
-        event = db.get_event(event_id, conn)
-        recent_update_times = db.list_event_recent_update_times(event_id, conn)
-        db.set_chat_current_step(chat.chat_id, None, conn)
-        db.set_chat_status(chat.chat_id, enums.ChatStatus.COMPLETED.value, conn)
-        logger.info(f"Chat completed: {chat.chat_id}")
-        return msg.FindEvent.format_event_summary(event, recent_update_times)
+        return process_find_event_input_name(text, chat, conn)
 
 
-def create_new_chat(command: str, user_id: str, conn: psycopg.Connection) -> Message:
+def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
+    if chat.current_step == enums.UserSettingsSteps.SELECT_OPTION:
+        logger.info("Processing user settings option input")
+        if text == "更改提醒時段":
+            return prepare_user_settings_new_notification_selection(chat, conn)
+        else:
+            logger.info(f"Invalid user settings option input: {text}")
+            return msg.UserSettings.invalid_input_for_option()
+
+    elif chat.current_step == enums.UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT:
+        logger.info("Text input is not expected at current step")
+        return msg.UserSettings.invalid_input_for_notification_slot(chat.payload)
+
+
+def create_new_chat(text: str, user_id: str, conn: psycopg.Connection) -> Message:
     chat_id = str(uuid.uuid4())
-    if command == enums.Command.NEW:
+    if text == enums.Command.NEW:
         user = db.get_user(user_id, conn)
         if user.is_limited:
             logger.info("Failed to create new event: reached max events allowed")
             return msg.Error.max_events_reached()
         logger.info("Creating new chat, chat type: new event")
+        logger.info(f"Chat ID: {chat_id}")
         chat = ChatData(
             chat_id=chat_id,
             user_id=user_id,
             chat_type=enums.ChatType.NEW_EVENT.value,
             current_step=enums.NewEventSteps.INPUT_NAME.value,
+            payload={},
+            status=enums.ChatStatus.ONGOING.value,
         )
         db.add_chat(chat, conn)
         return msg.NewEvent.prompt_for_event_name()
 
-    if command == enums.Command.FIND:
+    elif text == enums.Command.FIND:
         logger.info("Creating new chat, chat type: find event")
+        logger.info(f"Chat ID: {chat_id}")
         chat = ChatData(
             chat_id=chat_id,
             user_id=user_id,
             chat_type=enums.ChatType.FIND_EVENT.value,
             current_step=enums.FindEventSteps.INPUT_NAME.value,
+            payload={},
+            status=enums.ChatStatus.ONGOING.value,
         )
         db.add_chat(chat, conn)
         return msg.FindEvent.prompt_for_event_name()
 
-    if command == enums.Command.SETTINGS:
+    elif text == enums.Command.SETTINGS:
         logger.info("Creating new chat, chat type: user settings")
+        logger.info(f"Chat ID: {chat_id}")
         chat = ChatData(
             chat_id=chat_id,
             user_id=user_id,
             chat_type=enums.ChatType.USER_SETTINGS.value,
-            current_step=enums.UserSettingsSteps.INPUT_OPTION.value,
+            current_step=enums.UserSettingsSteps.SELECT_OPTION.value,
         )
         db.add_chat(chat, conn)
-        return
+        return msg.UserSettings.select_option()
 
 
-def handle_ongoing_chat(msg: str, chat: ChatData, conn: psycopg.Connection) -> Message:
+def handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
     if chat.chat_type == enums.ChatType.NEW_EVENT:
-        return handle_new_event_chat(msg, chat, conn)
-    if chat.chat_type == enums.ChatType.FIND_EVENT:
-        return handle_find_event_chat(msg, chat, conn)
+        return handle_new_event_chat(text, chat, conn)
+    elif chat.chat_type == enums.ChatType.FIND_EVENT:
+        return handle_find_event_chat(text, chat, conn)
+    elif chat.chat_type == enums.ChatType.USER_SETTINGS:
+        return handle_user_settings_chat(text, chat, conn)
 
 
-def get_reply_message(msg: str, user_id: str) -> Message:
-    logger.debug(f"Message received: {msg}")
+def get_reply_message(text: str, user_id: str) -> Message:
+    logger.info(f"Message received: {text}")
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
         ongoing_chat_id = db.get_ongoing_chat_id(user_id, conn)
 
         if ongoing_chat_id is None:
-            if msg == enums.Command.ABORT:
+            if text == enums.Command.ABORT:
                 return msg.Abort.no_ongoing_chat()
-            if not msg.startswith("/"):
+            if not text.startswith("/"):
                 return msg.Greeting.random()
-            if msg not in enums.SUPPORTED_COMMANDS:
+            if text not in enums.SUPPORTED_COMMANDS:
                 return msg.Error.unrecognized_command()
-            return create_new_chat(msg, user_id, conn)
+            return create_new_chat(text, user_id, conn)
 
         chat = db.get_chat(ongoing_chat_id, conn)
-        logger.debug(f"Ongoing chat found: {chat.chat_id}")
-        logger.debug(f"Chat type: {chat.chat_type}")
-        logger.debug(f"Current step: {chat.current_step}")
+        logger.info(f"Ongoing chat found: {chat.chat_id}")
+        logger.info(f"Chat type: {chat.chat_type}")
+        logger.info(f"Current step: {chat.current_step}")
 
-        if msg == enums.Command.ABORT:
+        if text == enums.Command.ABORT:
             chat.status = enums.ChatStatus.ABORTED.value
             db.set_chat_status(chat.chat_id, enums.ChatStatus.ABORTED.value, conn)
-            logger.info(f"Chat aborted: {chat.chat_id}")
+            logger.info("Chat aborted")
             return msg.Abort.ongoing_chat_aborted()
 
-        return handle_ongoing_chat(msg, chat, conn)
+        return handle_ongoing_chat(text, chat, conn)
 
 
 # --------------------------- LINE Event Handlers ---------------------------- #
@@ -356,22 +494,19 @@ def handle_user_blocked(event: UnfollowEvent) -> None:
 
 @handler.add(PostbackEvent)
 def handle_postback(event: PostbackEvent) -> None:
-    logger.info(f"Postback data: {event.postback.data}")
-    logger.info(f"Postback params: {event.postback.params}")
+    logger.debug(f"Postback data: {event.postback.data}")
+    logger.debug(f"Postback params: {event.postback.params}")
     chat_id = event.postback.data
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
         chat = db.get_chat(chat_id, conn)
         # only proceed if status and current step matches
-        if chat.chat_type == enums.ChatType.NEW_EVENT and chat.current_step == enums.NewEventSteps.INPUT_START_DATE:
-            logger.info("Processing start date input")
-            start_date = datetime.strptime(event.postback.params["date"], "%Y-%m-%d")
-            start_date = start_date.replace(tzinfo=TZ_TAIPEI)
-            chat.payload["start_date"] = start_date.isoformat()  # datetime is not JSON serializable
-            chat.current_step = enums.NewEventSteps.INPUT_ENABLE_REMINDER
-            logger.info(f"Added to chat payload: start_date='{chat.payload['start_date']}'")
-            db.set_chat_payload(chat.chat_id, chat.payload, conn)
-            db.set_chat_current_step(chat.chat_id, enums.NewEventSteps.INPUT_ENABLE_REMINDER.value, conn)
-            reply_msg = msg.NewEvent.prompt_for_toggle_reminder(chat.payload)
+        if chat.chat_type == enums.ChatType.NEW_EVENT and chat.current_step == enums.NewEventSteps.SELECT_START_DATE:
+            reply_msg = process_new_event_select_start_date(event, chat, conn)
+        elif (
+            chat.chat_type == enums.ChatType.USER_SETTINGS
+            and chat.current_step == enums.UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT
+        ):
+            reply_msg = process_user_settings_select_new_notification_slot(event)
         else:
             return None
 
@@ -382,8 +517,8 @@ def handle_postback(event: PostbackEvent) -> None:
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_text_message(event: MessageEvent) -> None:
-    msg = sanitize_msg(event.message.text)
-    reply_msg = get_reply_message(msg=msg, user_id=event.source.user_id)
+    text = sanitize_msg(event.message.text)
+    reply_msg = get_reply_message(text=text, user_id=event.source.user_id)
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
         line_bot_api.reply_message(ReplyMessageRequest(reply_token=event.reply_token, messages=[reply_msg]))
