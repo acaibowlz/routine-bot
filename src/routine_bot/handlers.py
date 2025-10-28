@@ -181,13 +181,13 @@ def process_new_event_disable_reminder(chat: ChatData, conn: psycopg.Connection)
         is_active=True,
     )
     db.add_event(event, conn)
-    logger.info("┌── New Event Created ────────────────")
+    logger.info("┌── New Event Created ──────────────────────")
     logger.info(f"│ ID: {event_id}")
     logger.info(f"│ User: {event.user_id}")
     logger.info(f"│ Name: {event.event_name}")
     logger.info(f"│ Reminder: {event.reminder_enabled}")
     logger.info(f"│ Last Done: {event.last_done_at}")
-    logger.info("└─────────────────────────────────────")
+    logger.info("└───────────────────────────────────────────")
 
     update = UpdateData(
         update_id=str(uuid.uuid4()),
@@ -244,7 +244,7 @@ def process_new_event_select_event_cycle(text: str, chat: ChatData, conn: psycop
         is_active=True,
     )
     db.add_event(event, conn)
-    logger.info("┌── New Event Created ────────────────")
+    logger.info("┌── New Event Created ──────────────────────")
     logger.info(f"│ ID: {event_id}")
     logger.info(f"│ User: {event.user_id}")
     logger.info(f"│ Name: {event.event_name}")
@@ -252,7 +252,7 @@ def process_new_event_select_event_cycle(text: str, chat: ChatData, conn: psycop
     logger.info(f"│ Cycle: {event.event_cycle}")
     logger.info(f"│ Last Done: {event.last_done_at}")
     logger.info(f"│ Next Due: {event.next_due_at}")
-    logger.info("└─────────────────────────────────────")
+    logger.info("└───────────────────────────────────────────")
 
     update = UpdateData(
         update_id=str(uuid.uuid4()),
@@ -281,16 +281,16 @@ def process_find_event_input_name(text: str, chat: ChatData, conn: psycopg.Conne
 
     event = db.get_event(event_id, conn)
     recent_update_times = db.list_event_recent_update_times(event_id, conn)
-    logger.info("┌── Event Found ──────────────────────")
+    logger.info("┌── Event Found ────────────────────────────")
     logger.info(f"│ ID: {event_id}")
-    logger.info(f"│ User: {event.user_id}")
+    logger.info(f"│ User ID: {event.user_id}")
     logger.info(f"│ Name: {event_name}")
     logger.info(f"│ Reminder: {event.reminder_enabled}")
     logger.info(f"│ Cycle: {event.event_cycle}")
     logger.info(f"│ Last Done: {event.last_done_at}")
     logger.info(f"│ Next Due: {event.next_due_at}")
     logger.info(f"│ Recent Updates: {len(recent_update_times)}")
-    logger.info("└─────────────────────────────────────")
+    logger.info("└───────────────────────────────────────────")
 
     chat.current_step = None
     chat.status = enums.ChatStatus.COMPLETED.value
@@ -336,6 +336,70 @@ def process_user_settings_select_new_notification_slot(
         time_slot = datetime.strptime(time_slot, "%H:%M")
         db.set_user_notification_slot(chat.user_id, time_slot, conn)
         return msg.UserSettings.notification_slot_updated(chat.payload)
+
+
+def process_delete_event_input_name(text: str, chat: ChatData, conn: psycopg.Connection):
+    logger.info("Process delete event name input")
+    event_name = text
+
+    error_msg = validate_event_name(event_name)
+    if error_msg is not None:
+        logger.info(f"Invalid event name input: {event_name}")
+        return TextMessage(text=error_msg)
+    event_id = db.get_event_id(chat.user_id, event_name, conn)
+    if event_id is None:
+        logger.info(f"Event name not found: {event_name}")
+        return msg.Error.event_name_not_found(event_name)
+
+    event = db.get_event(event_id, conn)
+    chat.payload["event_id"] = event_id
+    chat.current_step = enums.DeleteEventSteps.CONFIRM_DELETION.value
+    db.set_chat_payload(chat.chat_id, chat.payload, conn)
+    db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    logger.info(f"Added to payload: event_id={event_id}")
+    logger.info(f"Current step updated: {chat.current_step}")
+    return msg.DeleteEvent.comfirm_event_deletion(event)
+
+
+def process_delete_event_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connection):
+    logger.info("Processing delete event confirm deletion")
+    event_id = chat.payload["event_id"]
+    event = db.get_event(event_id, conn)
+    if text == "刪除事件":
+        chat.payload["confirmation"] = True
+        chat.current_step = None
+        chat.status = enums.ChatStatus.COMPLETED.value
+        db.set_chat_payload(chat.chat_id, chat.payload, conn)
+        db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+        db.set_chat_status(chat.chat_id, chat.status, conn)
+        logger.info("Added to chat payload: confirmation=True")
+        logger.info(f"Current step updated: {chat.current_step}")
+        logger.info("Chat completed")
+
+        db.delete_updates_by_event_id(event_id, conn)
+        db.delete_event(event_id, conn)
+        logger.info("┌── Event Deleted ──────────────────────────")
+        logger.info(f"│ ID: {event.event_id}")
+        logger.info(f"│ User: {event.user_id}")
+        logger.info(f"│ Name: {event.event_name}")
+        logger.info("└───────────────────────────────────────────")
+        return msg.DeleteEvent.deleted(event.event_name)
+    elif text == "取消刪除":
+        chat.payload["confirmation"] = False
+        chat.current_step = None
+        chat.status = enums.ChatStatus.COMPLETED.value
+        db.set_chat_payload(chat.chat_id, chat.payload, conn)
+        db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+        db.set_chat_status(chat.chat_id, chat.status, conn)
+        logger.info("Added to chat payload: confirmation=False")
+        logger.info(f"Current step updated: {chat.current_step}")
+        logger.info("Chat completed")
+        logger.info("Deletion cancelled")
+        return msg.DeleteEvent.cancelled(event.event_name)
+    else:
+        logger.info(f"Invalid delete confirmation input: {text}")
+        event = db.get_event(chat.payload["event_id"], conn)
+        return msg.DeleteEvent.invalid_delete_confirmation(event)
 
 
 # ----------------------------- New Chat Creators ----------------------------- #
@@ -393,6 +457,22 @@ def create_user_settings_chat(user_id: str, conn: psycopg.Connection) -> Templat
     return msg.UserSettings.select_option()
 
 
+def create_delete_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessage:
+    chat_id = str(uuid.uuid4())
+    logger.info("Creating new chat, chat type: delete event")
+    logger.info(f"Chat ID: {chat_id}")
+    chat = ChatData(
+        chat_id=chat_id,
+        user_id=user_id,
+        chat_type=enums.ChatType.DELETE_EVENT.value,
+        current_step=enums.DeleteEventSteps.INPUT_NAME.value,
+        payload={},
+        status=enums.ChatStatus.ONGOING.value,
+    )
+    db.add_chat(chat, conn)
+    return msg.DeleteEvent.prompt_for_event_name()
+
+
 # ------------------------------ Chat Handlers ------------------------------- #
 
 
@@ -441,15 +521,27 @@ def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connectio
         return msg.UserSettings.unexpected_error()
 
 
-def create_new_chat(text: str, user_id: str, conn: psycopg.Connection) -> Message:
+def handle_delete_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
+    if chat.current_step == enums.DeleteEventSteps.INPUT_NAME:
+        return process_delete_event_input_name(text, chat, conn)
+    elif chat.current_step == enums.DeleteEventSteps.CONFIRM_DELETION:
+        return process_delete_event_confirm_deletion(text, chat, conn)
+    else:
+        logger.error(f"Unexpected step in handle_delete_event_chat: {chat.current_step}")
+        return msg.UserSettings.unexpected_error()
+
+
+def handle_new_chat(text: str, user_id: str, conn: psycopg.Connection) -> Message:
     if text == enums.Command.NEW:
         return create_new_event_chat(user_id, conn)
     elif text == enums.Command.FIND:
         return create_find_event_chat(user_id, conn)
     elif text == enums.Command.SETTINGS:
         return create_user_settings_chat(user_id, conn)
+    elif text == enums.Command.DELETE:
+        return create_delete_event_chat(user_id, conn)
     else:
-        logger.error(f"Unexpected command in create_new_chat: {text}")
+        logger.error(f"Unexpected command in handle_new_chat: {text}")
         return msg.Error.unexpected_error()
 
 
@@ -460,6 +552,8 @@ def handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> 
         return handle_find_event_chat(text, chat, conn)
     elif chat.chat_type == enums.ChatType.USER_SETTINGS:
         return handle_user_settings_chat(text, chat, conn)
+    elif chat.chat_type == enums.ChatType.DELETE_EVENT:
+        return handle_delete_event_chat(text, chat, conn)
     else:
         logger.error(f"Unexpected chat type in handle_ongoing_chat: {chat.chat_type}")
         return msg.Error.unexpected_error()
@@ -477,7 +571,7 @@ def get_reply_message(text: str, user_id: str) -> Message:
                 return msg.Greeting.random()
             if text not in enums.SUPPORTED_COMMANDS:
                 return msg.Error.unrecognized_command()
-            return create_new_chat(text, user_id, conn)
+            return handle_new_chat(text, user_id, conn)
 
         chat = db.get_chat(ongoing_chat_id, conn)
         logger.info(f"Ongoing chat found: {chat.chat_id}")

@@ -138,6 +138,7 @@ class NewEvent:
             lines=[
                 f"🎯 新事件［{chat_payload['event_name']}］",
                 f"🗓 起始日期：{chat_payload['start_date'][:10]}",
+                "🔔 提醒設定：開啟",
                 f"🔁 事件週期：{chat_payload['event_cycle']}",
             ],
         )
@@ -174,7 +175,7 @@ class NewEvent:
     def invalid_input_for_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
         template = ButtonsTemplate(
             title=f"🎯 新事件［{chat_payload['event_name']}］",
-            text=f"\n🗓 起始日期：{chat_payload['start_date'][:10]}\n\n⚠️ 無效的輸入，請再試一次\n\n⬇️ 請選擇提醒週期",
+            text=f"\n🗓 起始日期：{chat_payload['start_date'][:10]}\n\n⚠️ 無效的輸入，請再試一次\n\n⬇️ 請選擇事件週期",
             actions=[
                 MessageAction(label="1 天", text="1 day"),
                 MessageAction(label="1 週", text="1 week"),
@@ -183,7 +184,7 @@ class NewEvent:
             ],
         )
         msg = TemplateMessage(
-            altText=f"🎯 新事件［{chat_payload['event_name']}］⚠️ 輸入無效，請再次選擇提醒週期", template=template
+            altText=f"🎯 新事件［{chat_payload['event_name']}］⚠️ 輸入無效，請再次選擇事件週期", template=template
         )
         return msg
 
@@ -197,7 +198,7 @@ class FindEvent:
     def format_event_summary(event: EventData, recent_update_times: list[datetime]) -> FlexMessage:
         contents = [flex_text_bold_line(f"🎯［{event.event_name}］的事件摘要"), FlexSeparator()]
         if event.reminder_enabled:
-            contents.append(flex_text_normal_line(f"⏰ 事件間隔：{event.event_cycle}"))
+            contents.append(flex_text_normal_line(f"🔁 事件週期：{event.event_cycle}"))
             contents.append(flex_text_normal_line(f"🔔 下次預計：{event.next_due_at.strftime('%Y-%m-%d')}"))
         else:
             contents.append(flex_text_normal_line("🔕 提醒設定：關閉"))
@@ -299,7 +300,7 @@ class Reminder:
 
         lines = [
             f"✅ 上次完成：{event.last_done_at.strftime('%Y-%m-%d')}",
-            f"🔁 事件間隔：{event.event_cycle}",
+            f"🔁 事件週期：{event.event_cycle}",
         ]
         if not overdue_by:
             lines.append(f"🗓️ 下次日期：{event.next_due_at.strftime('%Y-%m-%d')}")
@@ -324,7 +325,7 @@ class Reminder:
         lines = [
             f"🫂 來自共享：{owner_profile.get('displayName')}",
             f"✅ 上次完成：{event.last_done_at.strftime('%Y-%m-%d')}",
-            f"🔁 事件間隔：{event.event_cycle}",
+            f"🔁 事件週期：{event.event_cycle}",
         ]
         if not overdue_by:
             lines.append(f"🗓️ 下次日期：{event.next_due_at.strftime('%Y-%m-%d')}")
@@ -428,4 +429,78 @@ class UserSettings:
             ],
         )
         msg = TemplateMessage(altText="⚙️ 更改提醒時段 ⚠️ 輸入無效，請再次選擇提醒時段", template=template)
+        return msg
+
+
+class DeleteEvent:
+    @staticmethod
+    def prompt_for_event_name() -> TextMessage:
+        return TextMessage(text="🎯 請輸入欲刪除的事件名稱")
+
+    @staticmethod
+    def comfirm_event_deletion(event: EventData) -> TemplateMessage:
+        if event.reminder_enabled:
+            text = (
+                "\n"
+                f"✅ 最近完成：{event.last_done_at.strftime('%Y-%m-%d')}\n\n"
+                "🔔 提醒設定：開啟\n\n"
+                f"🔁 事件週期：{event.event_cycle}\n\n"
+                "⬇️ 確定要刪除這個事件嗎？"
+            )
+        else:
+            text = (
+                "\n"
+                f"✅ 最近完成：{event.last_done_at.strftime('%Y-%m-%d')}\n\n"
+                "🔕 提醒設定：關閉\n\n"
+                "⬇️ 確定要刪除這個事件嗎？"
+            )
+        template = ButtonsTemplate(
+            title=f"🗑️ 刪除［{event.event_name}］",
+            text=text,
+            actions=[
+                MessageAction(label="是", text="刪除事件"),
+                MessageAction(label="否", text="取消刪除"),
+            ],
+        )
+        msg = TemplateMessage(altText=f"🗑️ 刪除［{event.event_name}］➡️ 確定要刪除這個事件嗎？", template=template)
+        return msg
+
+    @staticmethod
+    def deleted(event_name: str) -> TextMessage:
+        return TextMessage(text=f"🗑️ 事件［{event_name}］已成功刪除！")
+
+    @staticmethod
+    def cancelled(event_name: str) -> TextMessage:
+        return TextMessage(text=f"🚫 已取消刪除事件［{event_name}］")
+
+    @staticmethod
+    def invalid_delete_confirmation(event: EventData) -> TemplateMessage:
+        if event.reminder_enabled:
+            text = (
+                "\n"
+                "⚠️ 無效的輸入，請再試一次\n\n"
+                f"✅ 最近完成：{event.last_done_at.strftime('%Y-%m-%d')}\n\n"
+                "🔔 提醒設定：開啟\n\n"
+                f"🔁 事件週期：{event.event_cycle}\n\n"
+                "⬇️ 確定要刪除這個事件嗎？"
+            )
+        else:
+            text = (
+                "\n"
+                "⚠️ 無效的輸入，請再試一次\n\n"
+                f"✅ 最近完成：{event.last_done_at.strftime('%Y-%m-%d')}\n\n"
+                "🔕 提醒設定：關閉\n\n"
+                f"⬇️ 確定要刪除這個事件嗎？"
+            )
+        template = ButtonsTemplate(
+            title=f"🗑️ 刪除［{event.event_name}］",
+            text=text,
+            actions=[
+                MessageAction(label="是", text="刪除事件"),
+                MessageAction(label="否", text="取消刪除"),
+            ],
+        )
+        msg = TemplateMessage(
+            altText=f"🗑️ 刪除［{event.event_name}］⚠️ 輸入無效，確定要刪除這個事件嗎？", template=template
+        )
         return msg

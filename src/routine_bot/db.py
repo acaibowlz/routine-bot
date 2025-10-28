@@ -517,6 +517,19 @@ def get_event(event_id: str, conn: psycopg.Connection) -> EventData | None:
         return EventData(*result)
 
 
+def delete_event(event_id: str, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            DELETE FROM events
+            WHERE event_id = %s
+            """,
+            (event_id,),
+        )
+    conn.commit()
+    logger.debug(f"Event deleted: {event_id}")
+
+
 def get_event_id(user_id: str, event_name: str, conn: psycopg.Connection) -> str | None:
     with conn.cursor() as cur:
         cur.execute(
@@ -626,6 +639,31 @@ def list_event_recent_update_times(event_id: str, conn: psycopg.Connection, limi
         )
         result = cur.fetchall()
         return [row[0] for row in result]
+
+
+def delete_updates_by_event_id(event_id: str, conn: psycopg.Connection) -> None:
+    logger.debug(f"Deleting updates by event_id: {event_id}")
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT update_id
+            FROM updates
+            WHERE event_id = %s
+            """,
+            (event_id,),
+        )
+        update_ids = [row[0] for row in cur.fetchall()]
+
+        cur.execute(
+            """
+            DELETE FROM updates
+            WHERE event_id = %s
+            """,
+            (event_id,),
+        )
+    conn.commit()
+    for update_id in update_ids:
+        logger.debug(f"Update deleted: {update_id}")
 
 
 # ------------------------------- Share Table -------------------------------- #

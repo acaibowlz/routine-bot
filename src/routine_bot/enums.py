@@ -61,6 +61,11 @@ class FindEventSteps(StrEnum):
     INPUT_NAME = auto()
 
 
+class DeleteEventSteps(StrEnum):
+    INPUT_NAME = auto()
+    CONFIRM_DELETION = auto()
+
+
 # ------------------------------- User Settings ------------------------------- #
 
 

@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, time
 
 from routine_bot.constants import FREE_PLAN_MAX_EVENTS, TZ_TAIPEI
-from routine_bot.enums import ChatStatus
 
 
 @dataclass
