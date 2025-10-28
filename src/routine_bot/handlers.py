@@ -338,6 +338,61 @@ def process_user_settings_select_new_notification_slot(
         return msg.UserSettings.notification_slot_updated(chat.payload)
 
 
+# ----------------------------- New Chat Creators ----------------------------- #
+
+
+def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage | TextMessage:
+    user = db.get_user(user_id, conn)
+    if user.is_limited:
+        logger.info("Failed to create new event: reached max events allowed")
+        return msg.Error.max_events_reached()
+    chat_id = str(uuid.uuid4())
+    logger.info("Creating new chat, chat type: new event")
+    logger.info(f"Chat ID: {chat_id}")
+    chat = ChatData(
+        chat_id=chat_id,
+        user_id=user_id,
+        chat_type=enums.ChatType.NEW_EVENT.value,
+        current_step=enums.NewEventSteps.INPUT_NAME.value,
+        payload={},
+        status=enums.ChatStatus.ONGOING.value,
+    )
+    db.add_chat(chat, conn)
+    return msg.NewEvent.prompt_for_event_name()
+
+
+def create_find_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessage:
+    chat_id = str(uuid.uuid4())
+    logger.info("Creating new chat, chat type: find event")
+    logger.info(f"Chat ID: {chat_id}")
+    chat = ChatData(
+        chat_id=chat_id,
+        user_id=user_id,
+        chat_type=enums.ChatType.FIND_EVENT.value,
+        current_step=enums.FindEventSteps.INPUT_NAME.value,
+        payload={},
+        status=enums.ChatStatus.ONGOING.value,
+    )
+    db.add_chat(chat, conn)
+    return msg.FindEvent.prompt_for_event_name()
+
+
+def create_user_settings_chat(user_id: str, conn: psycopg.Connection) -> TemplateMessage:
+    chat_id = str(uuid.uuid4())
+    logger.info("Creating new chat, chat type: user settings")
+    logger.info(f"Chat ID: {chat_id}")
+    chat = ChatData(
+        chat_id=chat_id,
+        user_id=user_id,
+        chat_type=enums.ChatType.USER_SETTINGS.value,
+        current_step=enums.UserSettingsSteps.SELECT_OPTION.value,
+        payload={},
+        status=enums.ChatStatus.ONGOING.value,
+    )
+    db.add_chat(chat, conn)
+    return msg.UserSettings.select_option()
+
+
 # ------------------------------ Chat Handlers ------------------------------- #
 
 
@@ -357,11 +412,17 @@ def handle_new_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -
             return msg.NewEvent.invalid_input_for_enable_reminder(chat.payload)
     elif chat.current_step == enums.NewEventSteps.SELECT_EVENT_CYCLE:
         return process_new_event_select_event_cycle(text, chat, conn)
+    else:
+        logger.error(f"Unexpected step in handle_new_event_chat: {chat.current_step}")
+        return msg.Error.unexpected_error()
 
 
 def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
     if chat.current_step == enums.FindEventSteps.INPUT_NAME:
         return process_find_event_input_name(text, chat, conn)
+    else:
+        logger.error(f"Unexpected step in handle_find_event_chat: {chat.current_step}")
+        return msg.Error.unexpected_error()
 
 
 def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
@@ -372,59 +433,24 @@ def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connectio
         else:
             logger.info(f"Invalid user settings option input: {text}")
             return msg.UserSettings.invalid_input_for_option()
-
     elif chat.current_step == enums.UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT:
         logger.info("Text input is not expected at current step")
         return msg.UserSettings.invalid_input_for_notification_slot(chat.payload)
+    else:
+        logger.error(f"Unexpected step in handle_user_settings_chat: {chat.current_step}")
+        return msg.UserSettings.unexpected_error()
 
 
 def create_new_chat(text: str, user_id: str, conn: psycopg.Connection) -> Message:
-    chat_id = str(uuid.uuid4())
     if text == enums.Command.NEW:
-        user = db.get_user(user_id, conn)
-        if user.is_limited:
-            logger.info("Failed to create new event: reached max events allowed")
-            return msg.Error.max_events_reached()
-        logger.info("Creating new chat, chat type: new event")
-        logger.info(f"Chat ID: {chat_id}")
-        chat = ChatData(
-            chat_id=chat_id,
-            user_id=user_id,
-            chat_type=enums.ChatType.NEW_EVENT.value,
-            current_step=enums.NewEventSteps.INPUT_NAME.value,
-            payload={},
-            status=enums.ChatStatus.ONGOING.value,
-        )
-        db.add_chat(chat, conn)
-        return msg.NewEvent.prompt_for_event_name()
-
+        return create_new_event_chat(user_id, conn)
     elif text == enums.Command.FIND:
-        logger.info("Creating new chat, chat type: find event")
-        logger.info(f"Chat ID: {chat_id}")
-        chat = ChatData(
-            chat_id=chat_id,
-            user_id=user_id,
-            chat_type=enums.ChatType.FIND_EVENT.value,
-            current_step=enums.FindEventSteps.INPUT_NAME.value,
-            payload={},
-            status=enums.ChatStatus.ONGOING.value,
-        )
-        db.add_chat(chat, conn)
-        return msg.FindEvent.prompt_for_event_name()
-
+        return create_find_event_chat(user_id, conn)
     elif text == enums.Command.SETTINGS:
-        logger.info("Creating new chat, chat type: user settings")
-        logger.info(f"Chat ID: {chat_id}")
-        chat = ChatData(
-            chat_id=chat_id,
-            user_id=user_id,
-            chat_type=enums.ChatType.USER_SETTINGS.value,
-            current_step=enums.UserSettingsSteps.SELECT_OPTION.value,
-            payload={},
-            status=enums.ChatStatus.ONGOING.value,
-        )
-        db.add_chat(chat, conn)
-        return msg.UserSettings.select_option()
+        return create_user_settings_chat(user_id, conn)
+    else:
+        logger.error(f"Unexpected command in create_new_chat: {text}")
+        return msg.Error.unexpected_error()
 
 
 def handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
@@ -434,6 +460,9 @@ def handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> 
         return handle_find_event_chat(text, chat, conn)
     elif chat.chat_type == enums.ChatType.USER_SETTINGS:
         return handle_user_settings_chat(text, chat, conn)
+    else:
+        logger.error(f"Unexpected chat type in handle_ongoing_chat: {chat.chat_type}")
+        return msg.Error.unexpected_error()
 
 
 def get_reply_message(text: str, user_id: str) -> Message:

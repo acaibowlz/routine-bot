@@ -227,6 +227,10 @@ class Error:
         return TextMessage(text="指令無法辨識🤣 請再試一次😌")
 
     @staticmethod
+    def unexpected_error() -> TextMessage:
+        return TextMessage(text="發生未預期的錯誤🚨 請再試一次或聯繫客服🛠️")
+
+    @staticmethod
     def event_name_duplicated(event_name: str) -> TextMessage:
         return TextMessage(text=f"已有叫做［{event_name}］的事件🤣 請換個名稱再試一次😌")
 
