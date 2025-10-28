@@ -302,6 +302,7 @@ def process_find_event_input_name(text: str, chat: ChatData, conn: psycopg.Conne
 
 
 def prepare_user_settings_new_notification_selection(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
+    logger.info("Option selected: new notification slot")
     option = enums.UserSettingsOptions.NOTIFICATION_SLOT.value
     user = db.get_user(chat.user_id, conn)
     chat.payload["option"] = option
@@ -310,6 +311,10 @@ def prepare_user_settings_new_notification_selection(chat: ChatData, conn: psyco
     chat.current_step = enums.UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT.value
     db.set_chat_payload(chat.chat_id, chat.payload, conn)
     db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    logger.info(f"Added to payload: option={option}")
+    logger.info(f"Added to payload: chat_id={chat.chat_id}")
+    logger.info(f"Added to payload: current_slot={chat.payload['current_slot']}")
+    logger.info(f"Current step updated: {chat.current_step}")
     return msg.UserSettings.select_new_notification_slot(chat.payload)
 
 
@@ -322,11 +327,12 @@ def process_user_settings_select_new_notification_slot(
     else:
         time_slot = postback.postback.params["time"]
         chat.payload["new_slot"] = time_slot
-        logger.info(f"Added to chat payload: new_slot='{chat.payload['new_slot']}'")
         db.set_chat_payload(chat.chat_id, chat.payload, conn)
         db.set_chat_current_step(chat.chat_id, None, conn)
         db.set_chat_status(chat.chat_id, enums.ChatStatus.COMPLETED.value, conn)
-        logger.info(f"Chat completed: {chat.chat_id}")
+        logger.info(f"Added to chat payload: new_slot='{chat.payload['new_slot']}'")
+        logger.info(f"Current step updated: {chat.current_step}")
+        logger.info("Chat completed")
         time_slot = datetime.strptime(time_slot, "%H:%M")
         db.set_user_notification_slot(chat.user_id, time_slot, conn)
         return msg.UserSettings.notification_slot_updated(chat.payload)
@@ -414,6 +420,8 @@ def create_new_chat(text: str, user_id: str, conn: psycopg.Connection) -> Messag
             user_id=user_id,
             chat_type=enums.ChatType.USER_SETTINGS.value,
             current_step=enums.UserSettingsSteps.SELECT_OPTION.value,
+            payload={},
+            status=enums.ChatStatus.ONGOING.value,
         )
         db.add_chat(chat, conn)
         return msg.UserSettings.select_option()
@@ -506,7 +514,7 @@ def handle_postback(event: PostbackEvent) -> None:
             chat.chat_type == enums.ChatType.USER_SETTINGS
             and chat.current_step == enums.UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT
         ):
-            reply_msg = process_user_settings_select_new_notification_slot(event)
+            reply_msg = process_user_settings_select_new_notification_slot(event, chat, conn)
         else:
             return None
 

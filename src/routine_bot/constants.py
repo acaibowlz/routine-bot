@@ -38,14 +38,14 @@ LOGGING_CONFIG = {
     },
     "loggers": {
         "uvicorn.error": {
-            "handlers": ["stream"],
-            "level": "INFO",
+            "handlers": [],
+            "level": "ERROR",
             "propagate": False,
         },
         # Disable uvicorn.access logs
         "uvicorn.access": {
             "handlers": [],
-            "level": "CRITICAL",
+            "level": "ERROR",
             "propagate": False,
         },
     },

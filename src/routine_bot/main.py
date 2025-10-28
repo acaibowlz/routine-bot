@@ -24,7 +24,7 @@ app = FastAPI()
 @app.post("/webhook")
 async def webhook(request: Request):
     """
-    The entry point of out LINE bot.
+    The entry point of the LINE bot.
     """
     signature = request.headers.get("X-Line-Signature")
     if signature is None:
@@ -48,10 +48,10 @@ async def webhook(request: Request):
 
 def send_reminders_for_user_owned_events(user_id: str, line_bot_api: MessagingApi, conn: psycopg.Connection) -> None:
     events = db.list_overdue_events_by_user(user_id, conn)
-    if len(events):
-        logger.info(f"{len(events)} overdue events found")
-    else:
+    if not len(events):
         logger.info("No overdue event found")
+        return
+    logger.info(f"{len(events)} overdue events found")
     for event in events:
         push_msg = msg.Reminder.user_owned_event(event)
         line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[push_msg]))
@@ -60,10 +60,10 @@ def send_reminders_for_user_owned_events(user_id: str, line_bot_api: MessagingAp
 
 def send_reminders_for_shared_events(user_id: str, line_bot_api: MessagingApi, conn: psycopg.Connection) -> None:
     events = db.list_overdue_shared_events_by_user(user_id, conn)
-    if len(events):
-        logger.info(f"{len(events)} overdue shared events found")
-    else:
+    if not len(events):
         logger.info("No overdue shared event found")
+        return
+    logger.info(f"{len(events)} overdue shared events found")
     for event in events:
         owner_profile = get_user_profile(event.user_id)
         push_msg = msg.Reminder.shared_event(event, owner_profile)

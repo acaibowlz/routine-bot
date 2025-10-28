@@ -357,7 +357,9 @@ class UserSettings:
             title="⚙️ 更改提醒時段",
             text=f"\n🕒 當前提醒時段：{chat_payload['current_slot']}\n\n⬇️ 請選擇新的提醒時段",
             actions=[
-                DatetimePickerAction(label="選擇時段", data=chat_payload["chat_id"], mode="time", initial="12:00")
+                DatetimePickerAction(
+                    label="選擇時段", data=chat_payload["chat_id"], mode="time", initial=chat_payload["current_slot"]
+                )
             ],
         )
         msg = TemplateMessage(altText="⚙️ 使用者設定 ➡️ 更改提醒時段", template=template)
@@ -402,7 +404,9 @@ class UserSettings:
             title="⚙️ 更改提醒時段",
             text=f"\n⚠️ 無效的輸入，請再試一次\n\n🕒 當前提醒時段：{chat_payload['current_slot']}\n\n⬇️ 請透過下方按鈕選擇提醒時段",
             actions=[
-                DatetimePickerAction(label="選擇時段", data=chat_payload["chat_id"], mode="time", initial="12:00")
+                DatetimePickerAction(
+                    label="選擇時段", data=chat_payload["chat_id"], mode="time", initial=chat_payload["current_slot"]
+                )
             ],
         )
         msg = TemplateMessage(altText="⚙️ 更改提醒時段 ⚠️ 輸入無效，請再次選擇提醒時段", template=template)
@@ -414,7 +418,9 @@ class UserSettings:
             title="⚙️ 更改提醒時段",
             text=f"\n⚠️ 無效的輸入，請再試一次\n\n🕒 當前提醒時段：{chat_payload['current_slot']}\n\n⬇️ 請將分鐘部分調整為 0",
             actions=[
-                DatetimePickerAction(label="選擇時段", data=chat_payload["chat_id"], mode="time", initial="12:00")
+                DatetimePickerAction(
+                    label="選擇時段", data=chat_payload["chat_id"], mode="time", initial=chat_payload["current_slot"]
+                )
             ],
         )
         msg = TemplateMessage(altText="⚙️ 更改提醒時段 ⚠️ 輸入無效，請再次選擇提醒時段", template=template)
