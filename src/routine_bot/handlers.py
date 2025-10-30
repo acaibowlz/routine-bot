@@ -3,7 +3,6 @@ import re
 import unicodedata
 import uuid
 from datetime import datetime
-from pprint import pformat
 
 import psycopg
 import requests

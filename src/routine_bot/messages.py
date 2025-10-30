@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from string import Template
 
 from dateutil.relativedelta import relativedelta
 from linebot.v3.messaging import (

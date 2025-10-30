@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, time
 
 from routine_bot.constants import FREE_PLAN_MAX_EVENTS, TZ_TAIPEI
@@ -15,7 +15,7 @@ class UserData:
 
     @property
     def has_premium_access(self) -> bool:
-        return self.premium_until and self.premium_until > datetime.now(TZ_TAIPEI)
+        return self.premium_until is not None and self.premium_until > datetime.now(TZ_TAIPEI)
 
     @property
     def reached_free_plan_max_events(self) -> bool:
@@ -32,7 +32,7 @@ class ChatData:
     user_id: str
     chat_type: str
     current_step: str | None
-    payload: dict
+    payload: dict[str, str]
     status: str
 
 
@@ -55,7 +55,7 @@ class UpdateData:
     event_id: str
     event_name: str
     user_id: str
-    done_at: str
+    done_at: datetime
 
 
 @dataclass

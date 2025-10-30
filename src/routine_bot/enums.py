@@ -38,6 +38,9 @@ class ChatStatus(StrEnum):
     ABORTED = auto()
 
 
+# ------------------------- Cycle Units (for events) -------------------------- #
+
+
 class CycleUnit(StrEnum):
     DAY = auto()
     WEEK = auto()

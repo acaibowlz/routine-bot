@@ -287,8 +287,6 @@ def user_exists(user_id: str, conn: psycopg.Connection) -> bool:
 
 
 def list_active_users_by_notification_slot(time_slot: time, conn: psycopg.Connection) -> list[UserData]:
-    if not isinstance(time_slot, time):
-        raise TypeError("Time slot must be a datetime.time object")
     if time_slot.minute or time_slot.second or time_slot.microsecond:
         raise ValueError(f"Not a valid time slot: {time_slot}")
     logger.info(f"Current notification slot: {time_slot.strftime('%H:%M')}")
