@@ -9,7 +9,7 @@ from linebot.v3.messaging import ApiClient, MessagingApi, PushMessageRequest
 
 import routine_bot.db.users as user_db
 import routine_bot.messages as msg
-from routine_bot.constants import DATABASE_URL, ENV, REMINDER_TOKEN, TZ_TAIPEI
+from routine_bot.constants import DATABASE_URL, ENV, RUNNER_TOKEN, TZ_TAIPEI
 from routine_bot.handlers.main import configuration, handler
 from routine_bot.handlers.reminder import send_reminders_for_shared_events, send_reminders_for_user_owned_events
 from routine_bot.utils import format_logger_name
@@ -38,7 +38,7 @@ async def webhook(request: Request):
             detail="Invalid signature. Please check your channel secret and access token.",
         )
     except Exception as e:
-        if ENV == "DEBUG":
+        if ENV == "develop":
             logger.error(str(e), exc_info=True)
         else:
             logger.error(str(e))
@@ -53,7 +53,7 @@ async def run_reminder(request: Request):
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or invalid Authorization header")
     token = auth_header.split(" ")[1]
-    if token != REMINDER_TOKEN:
+    if token != RUNNER_TOKEN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
 
     logger.info("Starting the reminder process")

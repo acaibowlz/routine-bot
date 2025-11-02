@@ -12,7 +12,7 @@ from routine_bot.models import EventData
 
 def user_owned_event(event: EventData) -> FlexMessage:
     if event.next_due_at is None:
-        raise AttributeError("Event's next due date is missing")
+        raise AttributeError(f"Event {event.event_id} has reminder enabled, but the next due date cannot be found")
     overdue_by = relativedelta(datetime.now(TZ_TAIPEI), event.next_due_at)
     overdue_by = parse_time_delta(overdue_by)
 
@@ -38,7 +38,7 @@ def user_owned_event(event: EventData) -> FlexMessage:
 
 def shared_event(event: EventData, owner_profile: dict[str, str]) -> FlexMessage:
     if event.next_due_at is None:
-        raise AttributeError("Event's next due date is missing")
+        raise AttributeError(f"Event {event.event_id} has reminder enabled, but the next due date cannot be found")
     overdue_by = relativedelta(datetime.now(TZ_TAIPEI), event.next_due_at)
     overdue_by = parse_time_delta(overdue_by)
 

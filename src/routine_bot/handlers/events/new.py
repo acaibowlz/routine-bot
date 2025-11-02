@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 import psycopg
 from dateutil.relativedelta import relativedelta
@@ -100,7 +100,7 @@ def _process_disable_reminder(chat: ChatData, conn: psycopg.Connection) -> FlexM
     logger.info(f"│ User: {event.user_id}")
     logger.info(f"│ Name: {event.event_name}")
     logger.info(f"│ Reminder: {event.reminder_enabled}")
-    logger.info(f"│ Last Done: {event.last_done_at}")
+    logger.info(f"│ Last Done: {event.last_done_at.astimezone(UTC)}")
     logger.info("└───────────────────────────────────────────")
 
     update = UpdateData(
@@ -162,8 +162,8 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
     logger.info(f"│ Name: {event.event_name}")
     logger.info(f"│ Reminder: {event.reminder_enabled}")
     logger.info(f"│ Cycle: {event.event_cycle}")
-    logger.info(f"│ Last Done: {event.last_done_at}")
-    logger.info(f"│ Next Due: {event.next_due_at}")
+    logger.info(f"│ Last Done: {event.last_done_at.astimezone(UTC)}")
+    logger.info(f"│ Next Due: {event.next_due_at.astimezone(UTC)}")
     logger.info("└───────────────────────────────────────────")
 
     update = UpdateData(

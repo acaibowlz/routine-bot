@@ -226,4 +226,3 @@ def init_db(conn: psycopg.Connection):
                 continue
             creator_func(cur)
             logger.info(f"Creating table: {table}")
-    logger.info("Database initialized")

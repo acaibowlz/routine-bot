@@ -13,7 +13,7 @@ LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
-REMINDER_TOKEN = os.getenv("REMINDER_TOKEN")
+RUNNER_TOKEN = os.getenv("RUNNER_TOKEN")
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 FREE_PLAN_MAX_EVENTS = 5
@@ -23,7 +23,7 @@ FREE_PLAN_MAX_EVENTS = 5
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {"simple": {"format": "[%(levelname)8s] %(name)-20s - %(message)s"}},
+    "formatters": {"simple": {"format": "[%(levelname)8s] %(name)-24s - %(message)s"}},
     "handlers": {
         "stream": {
             "class": "logging.StreamHandler",
@@ -39,7 +39,7 @@ LOGGING_CONFIG = {
     "loggers": {
         "uvicorn.error": {
             "handlers": ["stream"],
-            "level": "ERROR",
+            "level": "INFO",
             "propagate": False,
         },
         # Disable uvicorn.access logs

@@ -24,6 +24,7 @@ from routine_bot.handlers.events import (
     create_delete_event_chat,
     create_find_event_chat,
     create_new_event_chat,
+    create_view_all_chat,
     handle_delete_event_chat,
     handle_find_event_chat,
     handle_new_event_chat,
@@ -48,10 +49,12 @@ def _handle_new_chat(text: str, user_id: str, conn: psycopg.Connection) -> Messa
         return create_new_event_chat(user_id, conn)
     elif text == Command.FIND:
         return create_find_event_chat(user_id, conn)
-    elif text == Command.SETTINGS:
-        return create_user_settings_chat(user_id, conn)
     elif text == Command.DELETE:
         return create_delete_event_chat(user_id, conn)
+    elif text == Command.VIEW_ALL:
+        return create_view_all_chat(user_id, conn)
+    elif text == Command.SETTINGS:
+        return create_user_settings_chat(user_id, conn)
     else:
         logger.error(f"Unexpected command in handle_new_chat: {text}")
         return msg.error.unexpected_error()
@@ -62,10 +65,10 @@ def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) ->
         return handle_new_event_chat(text, chat, conn)
     elif chat.chat_type == ChatType.FIND_EVENT:
         return handle_find_event_chat(text, chat, conn)
-    elif chat.chat_type == ChatType.USER_SETTINGS:
-        return handle_user_settings_chat(text, chat, conn)
     elif chat.chat_type == ChatType.DELETE_EVENT:
         return handle_delete_event_chat(text, chat, conn)
+    elif chat.chat_type == ChatType.USER_SETTINGS:
+        return handle_user_settings_chat(text, chat, conn)
     else:
         logger.error(f"Unexpected chat type in handle_ongoing_chat: {chat.chat_type}")
         return msg.error.unexpected_error()
@@ -119,8 +122,6 @@ def handle_user_added(event: FollowEvent) -> None:
             logger.info(f"Unblocked by: {user_id}")
             user_db.set_user_activeness(user_id, True, conn)
             event_db.set_all_events_activeness_by_user(user_id, True, conn)
-        # conn.commit()
-        # logger.info("Operation(s) committed")
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
@@ -131,9 +132,9 @@ def handle_user_added(event: FollowEvent) -> None:
 
 @handler.add(UnfollowEvent)
 def handle_user_blocked(event: UnfollowEvent) -> None:
-    if event.source is None:
+    if not event.source:
         raise AttributeError("Source not found in the event object")
-    if event.source.user_id is None:
+    if not event.source.user_id:
         raise AttributeError("User ID no found in the event source")
     user_id = event.source.user_id
     logger.info(f"Blocked by: {user_id}")
@@ -144,8 +145,6 @@ def handle_user_blocked(event: UnfollowEvent) -> None:
         else:
             user_db.set_user_activeness(user_id, False, conn)
             event_db.set_all_events_activeness_by_user(user_id, False, conn)
-            # conn.commit()
-            # logger.info("Operation(s) committed")
 
 
 @handler.add(PostbackEvent)
@@ -167,8 +166,6 @@ def handle_postback(event: PostbackEvent) -> None:
             reply_msg = process_user_settings_new_notification_slot_selection(event, chat, conn)
         else:
             return None
-        # conn.commit()
-        # logger.info("Operation(s) committed")
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
@@ -177,9 +174,9 @@ def handle_postback(event: PostbackEvent) -> None:
 
 @handler.add(MessageEvent, message=TextMessageContent)
 def handle_text_message(event: MessageEvent) -> None:
-    if event.source is None:
+    if not event.source:
         raise AttributeError("Source not found in the event object")
-    if event.source.user_id is None:
+    if not event.source.user_id:
         raise AttributeError("User ID no found in the event source")
     user_id = event.source.user_id
 

@@ -109,6 +109,7 @@ def list_events_by_user(user_id: str, conn: psycopg.Connection) -> list[EventDat
                 is_active
             FROM events
             WHERE user_id = %s
+            ORDER BY last_done_at DESC
             """,
             (user_id,),
         )
@@ -134,6 +135,7 @@ def list_overdue_events_by_user(user_id: str, conn: psycopg.Connection) -> list[
             WHERE user_id = %s
             AND reminder_enabled = TRUE
             AND next_due_at <= NOW()
+            ORDER BY next_due_at ASC
             """,
             (user_id,),
         )

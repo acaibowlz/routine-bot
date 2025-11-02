@@ -1,1 +1,1 @@
-from . import delete, find, new
+from . import delete, find, new, view_all
