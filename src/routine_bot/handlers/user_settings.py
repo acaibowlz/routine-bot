@@ -33,10 +33,10 @@ def _prepare_new_notification_selection(chat: ChatData, conn: psycopg.Connection
     chat.current_step = UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT.value
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info(f"Added to payload: option={option}")
-    logger.info(f"Added to payload: chat_id={chat.chat_id}")
-    logger.info(f"Added to payload: current_slot={chat.payload['current_slot']}")
-    logger.info(f"Current step updated: {chat.current_step}")
+    logger.info(f"Adding to payload: option={option}")
+    logger.info(f"Adding to payload: chat_id={chat.chat_id}")
+    logger.info(f"Adding to payload: current_slot={chat.payload['current_slot']}")
+    logger.info(f"Setting current_step={chat.current_step}")
     return msg.user_settings.select_new_notification_slot(chat.payload)
 
 
@@ -45,20 +45,19 @@ def process_user_settings_new_notification_slot_selection(
 ):
     logger.info("Processing new notification slot selection")
     if postback.postback.params is None:
-        raise AttributeError("Postback cnotains no data")
-    if postback.postback.params["time"].split(":")[1] != "00":
+        raise AttributeError("Postback contains no data")
+    time_slot = postback.postback.params["time"]
+    if time_slot.split(":")[1] != "00":
+        logger.debug(f"Not a time slot: {time_slot}")
         return msg.user_settings.invalid_notification_slot(chat.payload)
     else:
-        time_slot = postback.postback.params["time"]
-        chat.payload["new_slot"] = time_slot
-        chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
+        time_slot = datetime.strptime(time_slot, "%H:%M").time()
+        logger.info(f"New notification slot: {time_slot}")
+        user_db.set_user_notification_slot(chat.user_id, time_slot, conn)
         chat_db.set_chat_current_step(chat.chat_id, None, conn)
         chat_db.set_chat_status(chat.chat_id, ChatStatus.COMPLETED.value, conn)
-        logger.info(f"Added to chat payload: new_slot='{chat.payload['new_slot']}'")
-        logger.info(f"Current step updated: {chat.current_step}")
-        logger.info("Chat completed")
-        time_slot = datetime.strptime(time_slot, "%H:%M").time()
-        user_db.set_user_notification_slot(chat.user_id, time_slot, conn)
+        logger.info(f"Setting current_step={chat.current_step}")
+        logger.info(f"Finishing chat: {chat.chat_id}")
         return msg.user_settings.notification_slot_updated(chat.payload)
 
 

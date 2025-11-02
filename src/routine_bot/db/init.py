@@ -225,6 +225,5 @@ def init_db(conn: psycopg.Connection):
             if _table_exists(cur, table):
                 continue
             creator_func(cur)
-            logger.info(f"Table created: {table}")
-    conn.commit()
+            logger.info(f"Creating table: {table}")
     logger.info("Database initialized")

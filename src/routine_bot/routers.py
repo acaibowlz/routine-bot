@@ -9,7 +9,7 @@ from linebot.v3.messaging import ApiClient, MessagingApi, PushMessageRequest
 
 import routine_bot.db.users as user_db
 import routine_bot.messages as msg
-from routine_bot.constants import DATABASE_URL, REMINDER_TOKEN, TZ_TAIPEI
+from routine_bot.constants import DATABASE_URL, ENV, REMINDER_TOKEN, TZ_TAIPEI
 from routine_bot.handlers.main import configuration, handler
 from routine_bot.handlers.reminder import send_reminders_for_shared_events, send_reminders_for_user_owned_events
 from routine_bot.utils import format_logger_name
@@ -22,7 +22,7 @@ router = APIRouter()
 @router.post("/webhook")
 async def webhook(request: Request):
     """
-    The entry point of the LINE bot.
+    The endpoint for LINE bot.
     """
     signature = request.headers.get("X-Line-Signature")
     if signature is None:
@@ -38,7 +38,10 @@ async def webhook(request: Request):
             detail="Invalid signature. Please check your channel secret and access token.",
         )
     except Exception as e:
-        logger.error(str(e), exc_info=True)
+        if ENV == "DEBUG":
+            logger.error(str(e), exc_info=True)
+        else:
+            logger.error(str(e))
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error")
 
     return Response(status_code=status.HTTP_200_OK)

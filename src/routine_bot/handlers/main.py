@@ -72,7 +72,7 @@ def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) ->
 
 
 def _get_reply_message(text: str, user_id: str) -> Message:
-    logger.info(f"Message received: {text}")
+    logger.debug(f"Message received: {text}")
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
         ongoing_chat_id = chat_db.get_ongoing_chat_id(user_id, conn)
 
@@ -86,15 +86,15 @@ def _get_reply_message(text: str, user_id: str) -> Message:
             return _handle_new_chat(text, user_id, conn)
 
         chat = chat_db.get_chat(ongoing_chat_id, conn)
-        assert chat is not None, "get_ongoing_chat() should gurantee chat to be found"
-        logger.info(f"Ongoing chat found: {chat.chat_id}")
-        logger.info(f"Chat type: {chat.chat_type}")
-        logger.info(f"Current step: {chat.current_step}")
+        assert chat is not None, "Chat is not suppose to be missing"
+        logger.debug(f"Ongoing chat found: {chat.chat_id}")
+        logger.debug(f"Chat type: {chat.chat_type}")
+        logger.debug(f"Current step: {chat.current_step}")
 
         if text == Command.ABORT:
             chat.status = ChatStatus.ABORTED.value
             chat_db.set_chat_status(chat.chat_id, ChatStatus.ABORTED.value, conn)
-            logger.info("Chat aborted")
+            logger.info(f"Aborting chat: {chat.chat_id}")
             return msg.info.ongoing_chat_aborted()
 
         return _handle_ongoing_chat(text, chat, conn)
@@ -108,7 +108,7 @@ def handle_user_added(event: FollowEvent) -> None:
     if event.source is None:
         raise AttributeError("Source not found in the event object")
     if event.source.user_id is None:
-        raise AttributeError("User ID no found in the event source")
+        raise AttributeError("User ID no found in the event source object")
     user_id = event.source.user_id
 
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
@@ -118,7 +118,9 @@ def handle_user_added(event: FollowEvent) -> None:
         else:
             logger.info(f"Unblocked by: {user_id}")
             user_db.set_user_activeness(user_id, True, conn)
-            event_db.set_event_activeness_by_user(user_id, True, conn)
+            event_db.set_all_events_activeness_by_user(user_id, True, conn)
+        # conn.commit()
+        # logger.info("Operation(s) committed")
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
@@ -141,7 +143,9 @@ def handle_user_blocked(event: UnfollowEvent) -> None:
             logger.warning("User not found in database")
         else:
             user_db.set_user_activeness(user_id, False, conn)
-            event_db.set_event_activeness_by_user(user_id, False, conn)
+            event_db.set_all_events_activeness_by_user(user_id, False, conn)
+            # conn.commit()
+            # logger.info("Operation(s) committed")
 
 
 @handler.add(PostbackEvent)
@@ -163,6 +167,8 @@ def handle_postback(event: PostbackEvent) -> None:
             reply_msg = process_user_settings_new_notification_slot_selection(event, chat, conn)
         else:
             return None
+        # conn.commit()
+        # logger.info("Operation(s) committed")
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)

@@ -26,15 +26,15 @@ def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connectio
         return TextMessage(text=error_msg)
     event_id = event_db.get_event_id(chat.user_id, event_name, conn)
     if event_id is None:
-        logger.info(f"Event name not found: {event_name}")
+        logger.info(f"Event not found: {event_name}")
         return msg.info.event_name_not_found(event_name)
 
     event = event_db.get_event(event_id, conn)
-    assert event is not None, "Event should gurantee to be found"
+    assert event is not None, "Event is not suppose to be missing"
     recent_update_times = update_db.list_event_recent_update_times(event_id, conn)
     logger.info("┌── Event Found ────────────────────────────")
     logger.info(f"│ ID: {event_id}")
-    logger.info(f"│ User ID: {event.user_id}")
+    logger.info(f"│ User: {event.user_id}")
     logger.info(f"│ Name: {event_name}")
     logger.info(f"│ Reminder: {event.reminder_enabled}")
     logger.info(f"│ Cycle: {event.event_cycle}")
@@ -43,15 +43,12 @@ def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connectio
     logger.info(f"│ Recent Updates: {len(recent_update_times)}")
     logger.info("└───────────────────────────────────────────")
 
-    chat.payload["event_name"] = event_name
     chat.current_step = None
     chat.status = ChatStatus.COMPLETED.value
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
     chat_db.set_chat_status(chat.chat_id, chat.status, conn)
-    logger.info(f"Added to payload: event_name={event_name}")
-    logger.info(f"Current step updated: {chat.current_step}")
-    logger.info("Chat completed")
+    logger.info(f"Setting current_step={chat.current_step}")
+    logger.info(f"Finishing chat: {chat.chat_id}")
     return msg.events.find.format_event_summary(event, recent_update_times)
 
 

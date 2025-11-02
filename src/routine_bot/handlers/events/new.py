@@ -45,9 +45,10 @@ def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connectio
     chat.current_step = NewEventSteps.SELECT_START_DATE.value
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info(f"Added to payload: event_name={event_name}")
-    logger.info(f"Added to payload: chat_id={chat.chat_id}")
-    logger.info(f"Current step updated: {chat.current_step}")
+
+    logger.info(f"Adding to payload: event_name={event_name}")
+    logger.info(f"Adding to payload: chat_id={chat.chat_id}")
+    logger.info(f"Setting current_step={chat.current_step}")
     return msg.events.new.select_start_date(chat.payload)
 
 
@@ -57,27 +58,25 @@ def process_new_event_start_date_selection(
 ) -> TemplateMessage:
     logger.info("Processing start date selection")
     if postback.postback.params is None:
-        raise AttributeError("Postback cnotains no data")
+        raise AttributeError("Postback contains no data")
 
     start_date = datetime.strptime(postback.postback.params["date"], "%Y-%m-%d")
     start_date = start_date.replace(tzinfo=TZ_TAIPEI)
     chat.payload["start_date"] = start_date.isoformat()  # datetime is not JSON serializable
-    chat.current_step = NewEventSteps.ENABLE_REMINDER
+    chat.current_step = NewEventSteps.ENABLE_REMINDER.value
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info(f"Added to payload: start_date={chat.payload['start_date']}")
-    logger.info(f"Current step updated: {chat.current_step}")
+
+    logger.info(f"Adding to payload: start_date={chat.payload['start_date']}")
+    logger.info(f"Setting current_step={chat.current_step}")
     return msg.events.new.enable_reminder(chat.payload)
 
 
 def _process_enable_reminder(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
     logger.info("Processing enable reminder")
-    chat.payload["reminder_enabled"] = "True"
     chat.current_step = NewEventSteps.SELECT_EVENT_CYCLE.value
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info("Added to payload: reminder_enabled=True")
-    logger.info(f"Current step updated: {chat.current_step}")
+    logger.info(f"Setting current_step={chat.current_step}")
     return msg.events.new.select_event_cycle(chat.payload)
 
 
@@ -96,7 +95,7 @@ def _process_disable_reminder(chat: ChatData, conn: psycopg.Connection) -> FlexM
         is_active=True,
     )
     event_db.add_event(event, conn)
-    logger.info("┌── New Event Created ──────────────────────")
+    logger.info("┌── Creating New Event ─────────────────────")
     logger.info(f"│ ID: {event_id}")
     logger.info(f"│ User: {event.user_id}")
     logger.info(f"│ Name: {event.event_name}")
@@ -114,15 +113,12 @@ def _process_disable_reminder(chat: ChatData, conn: psycopg.Connection) -> FlexM
     update_db.add_update(update, conn)
     user_db.increment_user_event_count(chat.user_id, by=1, conn=conn)
 
-    chat.payload["reminder_enabled"] = "False"
     chat.current_step = None
     chat.status = ChatStatus.COMPLETED.value
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
     chat_db.set_chat_status(chat.chat_id, chat.status, conn)
-    logger.info("Added to payload: reminder_enabled=False")
-    logger.info(f"Current step updated: {chat.current_step}")
-    logger.info("Chat completed")
+    logger.info(f"Setting current_step={chat.current_step}")
+    logger.info(f"Finishing chat: {chat.chat_id}")
     return msg.events.new.event_created_no_reminder(chat.payload)
 
 
@@ -136,8 +132,8 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
         logger.info(f"Invalid event cycle input: {text}")
         return msg.events.new.invalid_input_for_event_cycle(chat.payload)
     chat.payload["event_cycle"] = text
-    start_date = datetime.fromisoformat(chat.payload["start_date"])
 
+    start_date = datetime.fromisoformat(chat.payload["start_date"])
     offset = relativedelta()
     if unit == CycleUnit.DAY:
         offset = relativedelta(days=+increment)
@@ -146,16 +142,6 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
     elif unit == CycleUnit.MONTH:
         offset = relativedelta(months=+increment)
     next_due_at = start_date + offset
-
-    chat.payload["next_due_at"] = next_due_at.isoformat()
-    chat.current_step = None
-    chat.status = ChatStatus.COMPLETED.value
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
-    logger.info(f"Added to payload: next_due_at={next_due_at}")
-    logger.info(f"Current step updated: {chat.current_step}")
-    logger.info("Chat completed")
 
     event_id = str(uuid.uuid4())
     event = EventData(
@@ -170,7 +156,7 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
         is_active=True,
     )
     event_db.add_event(event, conn)
-    logger.info("┌── New Event Created ──────────────────────")
+    logger.info("┌── Creating New Event ─────────────────────")
     logger.info(f"│ ID: {event_id}")
     logger.info(f"│ User: {event.user_id}")
     logger.info(f"│ Name: {event.event_name}")
@@ -189,6 +175,13 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
     )
     update_db.add_update(update, conn)
     user_db.increment_user_event_count(chat.user_id, by=1, conn=conn)
+
+    chat.current_step = None
+    chat.status = ChatStatus.COMPLETED.value
+    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
+    logger.info(f"Setting current_step={chat.current_step}")
+    logger.info(f"Finishing chat: {chat.chat_id}")
     return msg.events.new.event_created_with_reminder(chat.payload)
 
 

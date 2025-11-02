@@ -18,8 +18,7 @@ def add_user(user_id: str, conn: psycopg.Connection) -> None:
             """,
             (user_id,),
         )
-    conn.commit()
-    logger.debug(f"User inserted: {user_id}")
+    logger.debug(f"Inserting user: {user_id}")
 
 
 def get_user(user_id: str, conn: psycopg.Connection) -> UserData | None:
@@ -61,8 +60,6 @@ def user_exists(user_id: str, conn: psycopg.Connection) -> bool:
 def list_active_users_by_notification_slot(time_slot: time, conn: psycopg.Connection) -> list[UserData]:
     if time_slot.minute or time_slot.second or time_slot.microsecond:
         raise ValueError(f"Not a valid time slot: {time_slot}")
-    logger.info(f"Current notification slot: {time_slot.strftime('%H:%M')}")
-
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -80,25 +77,23 @@ def list_active_users_by_notification_slot(time_slot: time, conn: psycopg.Connec
             (time_slot,),
         )
         result = cur.fetchall()
-        if len(result):
-            logger.info(f"{len(result)} active users found within current time slot")
-        else:
-            logger.info("No active user found within current time slot")
         return [UserData(*row) for row in result]
 
 
-def increment_user_event_count(user_id: str, by: int, conn: psycopg.Connection):
+def increment_user_event_count(user_id: str, by: int, conn: psycopg.Connection) -> int:
     with conn.cursor() as cur:
         cur.execute(
             """
             UPDATE users
             SET event_count = event_count + %s
             WHERE user_id = %s
+            RETURNING event_count
             """,
             (by, user_id),
         )
-    conn.commit()
-    logger.debug(f"User event_count incremented by {by}: {user_id}")
+        result = cur.fetchone()
+        assert result is not None, "User is not suppose to be missing"
+        return result[0]
 
 
 def set_user_activeness(user_id: str, to: bool, conn: psycopg.Connection) -> None:
@@ -111,8 +106,7 @@ def set_user_activeness(user_id: str, to: bool, conn: psycopg.Connection) -> Non
             """,
             (to, user_id),
         )
-    conn.commit()
-    logger.debug(f"User is_active updated: {user_id}")
+    logger.debug(f"Updating is_active for user: {user_id}")
 
 
 def set_user_notification_slot(user_id: str, time_slot: time, conn: psycopg.Connection) -> None:
@@ -125,5 +119,4 @@ def set_user_notification_slot(user_id: str, time_slot: time, conn: psycopg.Conn
             """,
             (time_slot, user_id),
         )
-    conn.commit()
-    logger.debug(f"User notification_slot updated: {user_id}")
+    logger.debug(f"Updating notification_slot for user: {user_id}")

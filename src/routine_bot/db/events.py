@@ -37,8 +37,7 @@ def add_event(event: EventData, conn: psycopg.Connection) -> None:
                 True,
             ),
         )
-    conn.commit()
-    logger.debug(f"Event inserted: {event.event_id}")
+    logger.debug(f"Inserting event: {event.event_id}")
 
 
 def get_event(event_id: str, conn: psycopg.Connection) -> EventData | None:
@@ -75,8 +74,7 @@ def delete_event(event_id: str, conn: psycopg.Connection) -> None:
             """,
             (event_id,),
         )
-    conn.commit()
-    logger.debug(f"Event deleted: {event_id}")
+    logger.debug(f"Deleting event: {event_id}")
 
 
 def get_event_id(user_id: str, event_name: str, conn: psycopg.Connection) -> str | None:
@@ -153,19 +151,21 @@ def set_event_activeness(event_id: str, to: bool, conn: psycopg.Connection) -> N
             """,
             (to, event_id),
         )
-    conn.commit()
-    logger.debug(f"Event is_active updated: {event_id}")
+    logger.debug(f"Updating is_active for event: {event_id}")
 
 
-def set_event_activeness_by_user(user_id: str, to: bool, conn: psycopg.Connection):
+def set_all_events_activeness_by_user(user_id: str, to: bool, conn: psycopg.Connection) -> None:
+    logger.debug(f"Updating all events activeness for user: {user_id}")
     with conn.cursor() as cur:
         cur.execute(
             """
             UPDATE events
             SET is_active = %s
             WHERE user_id = %s
+            RETURNING event_id
             """,
             (to, user_id),
         )
-    conn.commit()
-    logger.info(f"All events activeness set to {to}: {user_id}")
+        result = cur.fetchall()
+        for row in result:
+            logger.debug(f"Updating is_active for event: {row[0]}")

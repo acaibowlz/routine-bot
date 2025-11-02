@@ -23,8 +23,7 @@ def add_share(share: ShareData, conn: psycopg.Connection) -> None:
                 share.recipient_id,
             ),
         )
-    conn.commit()
-    logger.debug(f"Share inserted: {share.share_id}")
+    logger.debug(f"Inserting share: {share.share_id}")
 
 
 def list_shared_events_by_user(user_id: str, conn: psycopg.Connection) -> list[EventData]:

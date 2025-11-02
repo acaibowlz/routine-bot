@@ -30,13 +30,13 @@ def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connectio
         return msg.info.event_name_not_found(event_name)
 
     event = event_db.get_event(event_id, conn)
-    assert event is not None, "Event should gurantee to be found"
+    assert event is not None, "Event is not suppose to be missing"
     chat.payload["event_id"] = event_id
     chat.current_step = DeleteEventSteps.CONFIRM_DELETION.value
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info(f"Added to payload: event_id={event_id}")
-    logger.info(f"Current step updated: {chat.current_step}")
+    logger.info(f"Adding to payload: event_id={event_id}")
+    logger.info(f"Setting current_step={chat.current_step}")
     return msg.events.delete.comfirm_event_deletion(event)
 
 
@@ -50,33 +50,27 @@ def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connectio
     if text == "刪除事件":
         update_db.delete_updates_by_event_id(event_id, conn)
         event_db.delete_event(event_id, conn)
-        logger.info("┌── Event Deleted ──────────────────────────")
+        logger.info("┌── Deleting Event ─────────────────────────")
         logger.info(f"│ ID: {event.event_id}")
         logger.info(f"│ User: {event.user_id}")
         logger.info(f"│ Name: {event.event_name}")
         logger.info("└───────────────────────────────────────────")
 
-        chat.payload["confirmation"] = "True"
         chat.current_step = None
         chat.status = ChatStatus.COMPLETED.value
-        chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
         chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
         chat_db.set_chat_status(chat.chat_id, chat.status, conn)
-        logger.info("Added to chat payload: confirmation=True")
-        logger.info(f"Current step updated: {chat.current_step}")
-        logger.info("Chat completed")
+        logger.info(f"Setting current_step={chat.current_step}")
+        logger.info(f"Finishing chat: {chat.chat_id}")
         return msg.events.delete.deleted(event.event_name)
     elif text == "取消刪除":
-        chat.payload["confirmation"] = "False"
         chat.current_step = None
         chat.status = ChatStatus.COMPLETED.value
-        chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
         chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
         chat_db.set_chat_status(chat.chat_id, chat.status, conn)
-        logger.info("Deletion cancelled")
-        logger.info("Added to chat payload: confirmation=False")
-        logger.info(f"Current step updated: {chat.current_step}")
-        logger.info("Chat completed")
+        logger.info("Cancelling deletion")
+        logger.info(f"Setting current_step={chat.current_step}")
+        logger.info(f"Finishing chat: {chat.chat_id}")
         return msg.events.delete.cancelled(event.event_name)
     else:
         logger.info(f"Invalid delete confirmation input: {text}")

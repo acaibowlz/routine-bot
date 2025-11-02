@@ -24,8 +24,7 @@ def add_update(update: UpdateData, conn: psycopg.Connection) -> None:
                 update.done_at,
             ),
         )
-    conn.commit()
-    logger.debug(f"Update inserted: {update.update_id}")
+    logger.debug(f"Inserting update: {update.update_id}")
 
 
 def list_event_recent_update_times(event_id: str, conn: psycopg.Connection, limit: int = 10) -> list[datetime]:
@@ -44,7 +43,7 @@ def list_event_recent_update_times(event_id: str, conn: psycopg.Connection, limi
         return [row[0] for row in result]
 
 
-def delete_updates_by_event_id(event_id: str, conn: psycopg.Connection) -> None:
+def delete_updates_by_event_id(event_id: str, conn: psycopg.Connection) -> list[str]:
     logger.debug(f"Deleting updates by event_id: {event_id}")
     with conn.cursor() as cur:
         cur.execute(
@@ -56,6 +55,8 @@ def delete_updates_by_event_id(event_id: str, conn: psycopg.Connection) -> None:
             (event_id,),
         )
         update_ids = [row[0] for row in cur.fetchall()]
+        for update_id in update_ids:
+            logger.debug(f"Deleting update: {update_id}")
 
         cur.execute(
             """
@@ -64,6 +65,4 @@ def delete_updates_by_event_id(event_id: str, conn: psycopg.Connection) -> None:
             """,
             (event_id,),
         )
-    conn.commit()
-    for update_id in update_ids:
-        logger.debug(f"Update deleted: {update_id}")
+        return update_ids

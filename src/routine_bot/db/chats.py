@@ -26,8 +26,7 @@ def add_chat(chat: ChatData, conn: psycopg.Connection) -> None:
                 chat.status,
             ),
         )
-    conn.commit()
-    logger.debug(f"Chat inserted: {chat.chat_id}")
+    logger.debug(f"Inserting chat: {chat.chat_id}")
 
 
 def get_chat(chat_id: str, conn: psycopg.Connection) -> ChatData | None:
@@ -72,8 +71,7 @@ def set_chat_current_step(chat_id: str, current_step: str | None, conn: psycopg.
             """,
             (current_step, chat_id),
         )
-    conn.commit()
-    logger.debug(f"Chat current_step updated: {chat_id}")
+    logger.debug(f"Updating current_step for chat: {chat_id}")
 
 
 def set_chat_payload(chat_id: str, payload: dict, conn: psycopg.Connection) -> None:
@@ -86,8 +84,7 @@ def set_chat_payload(chat_id: str, payload: dict, conn: psycopg.Connection) -> N
             """,
             (Json(payload), chat_id),
         )
-    conn.commit()
-    logger.debug(f"Chat payload updated: {chat_id}")
+    logger.debug(f"Updating payload for chat: {chat_id}")
 
 
 def set_chat_status(chat_id: str, status: str, conn: psycopg.Connection) -> None:
@@ -100,5 +97,4 @@ def set_chat_status(chat_id: str, status: str, conn: psycopg.Connection) -> None
             """,
             (status, chat_id),
         )
-    conn.commit()
-    logger.debug(f"Chat status updated: {chat_id}")
+    logger.debug(f"Updating status for chat: {chat_id}")
