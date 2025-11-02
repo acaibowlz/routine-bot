@@ -12,7 +12,7 @@ ENV = os.getenv("ENV")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 REMINDER_TOKEN = os.getenv("REMINDER_TOKEN")
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
@@ -38,13 +38,13 @@ LOGGING_CONFIG = {
     },
     "loggers": {
         "uvicorn.error": {
-            "handlers": [],
+            "handlers": ["stream"],
             "level": "ERROR",
             "propagate": False,
         },
         # Disable uvicorn.access logs
         "uvicorn.access": {
-            "handlers": [],
+            "handlers": ["stream"],
             "level": "ERROR",
             "propagate": False,
         },
