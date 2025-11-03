@@ -37,7 +37,7 @@ def _prepare_new_notification_selection(chat: ChatData, conn: psycopg.Connection
     logger.info(f"Adding to payload: chat_id={chat.chat_id}")
     logger.info(f"Adding to payload: current_slot={chat.payload['current_slot']}")
     logger.info(f"Setting current_step={chat.current_step}")
-    return msg.user_settings.select_new_notification_slot(chat.payload)
+    return msg.user.settings.select_new_notification_slot(chat.payload)
 
 
 # this function is called by handle_postback in handlers/main.py
@@ -50,7 +50,7 @@ def process_user_settings_new_notification_slot_selection(
     time_slot = postback.postback.params["time"]
     if time_slot.split(":")[1] != "00":
         logger.debug(f"Not a time slot: {time_slot}")
-        return msg.user_settings.invalid_notification_slot(chat.payload)
+        return msg.user.settings.invalid_notification_slot(chat.payload)
     else:
         time_slot = datetime.strptime(time_slot, "%H:%M").time()
         logger.info(f"New notification slot: {time_slot}")
@@ -59,7 +59,7 @@ def process_user_settings_new_notification_slot_selection(
         chat_db.set_chat_status(chat.chat_id, ChatStatus.COMPLETED.value, conn)
         logger.info(f"Setting current_step={chat.current_step}")
         logger.info(f"Finishing chat: {chat.chat_id}")
-        return msg.user_settings.notification_slot_updated(chat.payload)
+        return msg.user.settings.notification_slot_updated(chat.payload)
 
 
 def create_user_settings_chat(user_id: str, conn: psycopg.Connection) -> TemplateMessage:
@@ -75,7 +75,7 @@ def create_user_settings_chat(user_id: str, conn: psycopg.Connection) -> Templat
         status=ChatStatus.ONGOING.value,
     )
     chat_db.add_chat(chat, conn)
-    return msg.user_settings.select_option()
+    return msg.user.settings.select_option()
 
 
 def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
@@ -85,9 +85,9 @@ def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connectio
             return _prepare_new_notification_selection(chat, conn)
         else:
             logger.info(f"Invalid user settings option input: {text}")
-            return msg.user_settings.invalid_input_for_option(chat.payload)
+            return msg.user.settings.invalid_input_for_option(chat.payload)
     elif chat.current_step == UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT:
         logger.info("Text input is not expected at current step")
-        return msg.user_settings.invalid_input_for_notification_slot(chat.payload)
+        return msg.user.settings.invalid_input_for_notification_slot(chat.payload)
     else:
         raise AssertionError(f"Unexpected step in handle_user_settings_chat: {chat.current_step}")

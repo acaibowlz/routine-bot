@@ -30,7 +30,7 @@ from routine_bot.handlers.events import (
     handle_new_event_chat,
     process_new_event_start_date_selection,
 )
-from routine_bot.handlers.user_settings import (
+from routine_bot.handlers.user import (
     create_user_settings_chat,
     handle_user_settings_chat,
     process_user_settings_new_notification_slot_selection,
