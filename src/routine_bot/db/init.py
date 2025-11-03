@@ -7,9 +7,10 @@ from routine_bot.utils import format_logger_name
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _table_exists(cur, table_name: str) -> bool:
+def _table_exists(cur: psycopg.Cursor, table_name: str) -> bool:
     cur.execute("SELECT to_regclass(%s)", (f"public.{table_name}",))
-    return cur.fetchone()[0] is not None
+    result = cur.fetchone()
+    return result is not None
 
 
 def _create_users_table(cur: psycopg.Cursor) -> None:

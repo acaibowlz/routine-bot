@@ -1,1 +1,1 @@
-from . import events, greeting, info, reminder, user
+from . import events, info, reminder, user

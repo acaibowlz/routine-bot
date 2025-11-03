@@ -8,6 +8,7 @@ class Command(StrEnum):
     VIEW_ALL = "/viewall"
     ABORT = "/abort"
     SETTINGS = "/settings"
+    MENU = "/menu"
 
 
 SUPPORTED_COMMANDS = {command.value for command in Command}

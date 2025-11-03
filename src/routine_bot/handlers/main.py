@@ -31,6 +31,7 @@ from routine_bot.handlers.events import (
     process_new_event_start_date_selection,
 )
 from routine_bot.handlers.user import (
+    create_menu_chat,
     create_user_settings_chat,
     handle_user_settings_chat,
     process_user_settings_new_notification_slot_selection,
@@ -44,19 +45,21 @@ configuration = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 
-def _handle_new_chat(text: str, user_id: str, conn: psycopg.Connection) -> Message:
-    if text == Command.NEW:
+def _handle_command(cmd: str, user_id: str, conn: psycopg.Connection) -> Message:
+    if cmd == Command.NEW:
         return create_new_event_chat(user_id, conn)
-    elif text == Command.FIND:
+    elif cmd == Command.FIND:
         return create_find_event_chat(user_id, conn)
-    elif text == Command.DELETE:
+    elif cmd == Command.DELETE:
         return create_delete_event_chat(user_id, conn)
-    elif text == Command.VIEW_ALL:
+    elif cmd == Command.VIEW_ALL:
         return create_view_all_chat(user_id, conn)
-    elif text == Command.SETTINGS:
+    elif cmd == Command.SETTINGS:
         return create_user_settings_chat(user_id, conn)
+    elif cmd == Command.MENU:
+        return create_menu_chat(user_id, conn)
     else:
-        raise AssertionError(f"Unknown command in handle_new_chat: {text}")
+        raise AssertionError(f"Unknown command in _handle_command: {cmd}")
 
 
 def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
@@ -81,10 +84,10 @@ def _get_reply_message(text: str, user_id: str) -> Message:
             if text == Command.ABORT:
                 return msg.info.no_ongoing_chat()
             if not text.startswith("/"):
-                return msg.greeting.random()
+                return msg.user.greeting.random()
             if text not in SUPPORTED_COMMANDS:
                 return msg.info.unrecognized_command()
-            return _handle_new_chat(text, user_id, conn)
+            return _handle_command(text, user_id, conn)
 
         chat = chat_db.get_chat(ongoing_chat_id, conn)
         assert chat is not None, "Chat is not suppose to be missing"
