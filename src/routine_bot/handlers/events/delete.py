@@ -99,5 +99,4 @@ def handle_delete_event_chat(text: str, chat: ChatData, conn: psycopg.Connection
     elif chat.current_step == DeleteEventSteps.CONFIRM_DELETION:
         return _process_confirm_deletion(text, chat, conn)
     else:
-        logger.error(f"Unexpected step in handle_delete_event_chat: {chat.current_step}")
-        return msg.error.unexpected_error()
+        raise AssertionError(f"Unknown step in handle_delete_event_chat: {chat.current_step}")

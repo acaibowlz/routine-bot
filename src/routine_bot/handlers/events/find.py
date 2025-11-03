@@ -72,5 +72,4 @@ def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) 
     if chat.current_step == FindEventSteps.INPUT_NAME:
         return _process_event_name_input(text, chat, conn)
     else:
-        logger.error(f"Unexpected step in handle_find_event_chat: {chat.current_step}")
-        return msg.error.unexpected_error()
+        raise AssertionError(f"Unknown step in handle_find_event_chat: {chat.current_step}")

@@ -156,6 +156,7 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
         is_active=True,
     )
     event_db.add_event(event, conn)
+    assert event.next_due_at is not None, "Next due date should be set at this step"
     logger.info("┌── Creating New Event ─────────────────────")
     logger.info(f"│ ID: {event_id}")
     logger.info(f"│ User: {event.user_id}")
@@ -224,5 +225,4 @@ def handle_new_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -
     elif chat.current_step == NewEventSteps.SELECT_EVENT_CYCLE:
         return _process_event_cycle_input(text, chat, conn)
     else:
-        logger.error(f"Unexpected step in handle_new_event_chat: {chat.current_step}")
-        return msg.error.unexpected_error()
+        raise AssertionError(f"Unknown step in handle_new_event_chat: {chat.current_step}")

@@ -56,8 +56,7 @@ def _handle_new_chat(text: str, user_id: str, conn: psycopg.Connection) -> Messa
     elif text == Command.SETTINGS:
         return create_user_settings_chat(user_id, conn)
     else:
-        logger.error(f"Unexpected command in handle_new_chat: {text}")
-        return msg.error.unexpected_error()
+        raise AssertionError(f"Unknown command in handle_new_chat: {text}")
 
 
 def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
@@ -70,8 +69,7 @@ def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) ->
     elif chat.chat_type == ChatType.USER_SETTINGS:
         return handle_user_settings_chat(text, chat, conn)
     else:
-        logger.error(f"Unexpected chat type in handle_ongoing_chat: {chat.chat_type}")
-        return msg.error.unexpected_error()
+        raise AssertionError(f"Unknown chat type in handle_ongoing_chat: {chat.chat_type}")
 
 
 def _get_reply_message(text: str, user_id: str) -> Message:

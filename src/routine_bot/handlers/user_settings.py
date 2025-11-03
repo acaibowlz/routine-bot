@@ -89,5 +89,4 @@ def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connectio
         logger.info("Text input is not expected at current step")
         return msg.user_settings.invalid_input_for_notification_slot(chat.payload)
     else:
-        logger.error(f"Unexpected step in handle_user_settings_chat: {chat.current_step}")
-        return msg.error.unexpected_error()
+        raise AssertionError(f"Unexpected step in handle_user_settings_chat: {chat.current_step}")
