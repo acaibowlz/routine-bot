@@ -40,6 +40,7 @@ def _prepare_new_notification_selection(chat: ChatData, conn: psycopg.Connection
     return msg.user_settings.select_new_notification_slot(chat.payload)
 
 
+# this function is called by handle_postback in handlers/main.py
 def process_user_settings_new_notification_slot_selection(
     postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection
 ):
@@ -84,7 +85,7 @@ def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connectio
             return _prepare_new_notification_selection(chat, conn)
         else:
             logger.info(f"Invalid user settings option input: {text}")
-            return msg.user_settings.invalid_input_for_option()
+            return msg.user_settings.invalid_input_for_option(chat.payload)
     elif chat.current_step == UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT:
         logger.info("Text input is not expected at current step")
         return msg.user_settings.invalid_input_for_notification_slot(chat.payload)

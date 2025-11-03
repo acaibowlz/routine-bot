@@ -82,3 +82,28 @@ def list_overdue_shared_events_by_user(user_id: str, conn: psycopg.Connection) -
         )
         result = cur.fetchall()
         return [EventData(*row) for row in result]
+
+
+def delete_shares_by_event_id(event_id: str, conn: psycopg.Connection):
+    logger.debug(f"Deleting shares by event_id: {event_id}")
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT share_id
+            FROM shares
+            WHERE event_id = %s
+            """,
+            (event_id,),
+        )
+        share_ids = [row[0] for row in cur.fetchall()]
+        for share_id in share_ids:
+            logger.debug(f"Deleting share: {share_id}")
+
+        cur.execute(
+            """
+            DELETE FROM shares
+            WHERE event_id = %s
+            """,
+            (event_id,),
+        )
+        return share_ids

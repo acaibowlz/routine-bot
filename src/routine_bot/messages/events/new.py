@@ -92,7 +92,20 @@ def invalid_input_for_start_date(chat_payload: dict[str, str]) -> TemplateMessag
         actions=[DatetimePickerAction(label="選擇日期", data=chat_payload["chat_id"], mode="date")],
     )
     msg = TemplateMessage(
-        altText=f"🎯 新事件［{chat_payload['event_name']}］⚠️ 輸入無效，請再次選擇事件起始日期", template=template
+        altText=f"🎯 新事件［{chat_payload['event_name']}］⚠️ 輸入無效，請選擇事件起始日期", template=template
+    )
+    return msg
+
+
+def invalid_selection_for_start_date_exceeds_today(chat_payload: dict[str, str]) -> TemplateMessage:
+    template = ButtonsTemplate(
+        title=f"🎯 新事件［{chat_payload['event_name']}］",
+        text="\n⚠️ 起始日期不可超過今天\n\n⬇️ 請重新選擇起始日期",
+        actions=[DatetimePickerAction(label="選擇日期", data=chat_payload["chat_id"], mode="date")],
+    )
+    msg = TemplateMessage(
+        altText=f"🎯 新事件［{chat_payload['event_name']}］⚠️ 起始日期不可超過今天，請重新選擇起始日期",
+        template=template,
     )
     return msg
 
@@ -107,7 +120,7 @@ def invalid_input_for_enable_reminder(chat_payload: dict[str, str]) -> TemplateM
         ],
     )
     msg = TemplateMessage(
-        altText=f"🎯 新事件［{chat_payload['event_name']}］ ⚠️ 輸入無效，請再次選擇是否設定提醒", template=template
+        altText=f"🎯 新事件［{chat_payload['event_name']}］ ⚠️ 輸入無效，請重新選擇是否設定提醒", template=template
     )
     return msg
 
@@ -124,6 +137,6 @@ def invalid_input_for_event_cycle(chat_payload: dict[str, str]) -> TemplateMessa
         ],
     )
     msg = TemplateMessage(
-        altText=f"🎯 新事件［{chat_payload['event_name']}］⚠️ 輸入無效，請再次選擇事件週期", template=template
+        altText=f"🎯 新事件［{chat_payload['event_name']}］⚠️ 輸入無效，請重新選擇事件週期", template=template
     )
     return msg

@@ -35,6 +35,7 @@ def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connectio
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
         logger.info(f"Invalid event name input: {event_name}")
+        logger.debug(f"Error msg={error_msg}")
         return TextMessage(text=error_msg)
     if event_db.get_event_id(chat.user_id, event_name, conn) is not None:
         logger.info(f"Duplicated event name input: {event_name}")
@@ -62,11 +63,15 @@ def process_new_event_start_date_selection(
 
     start_date = datetime.strptime(postback.postback.params["date"], "%Y-%m-%d")
     start_date = start_date.replace(tzinfo=TZ_TAIPEI)
+    logger.debug(f"Start date received: {start_date}")
+    if start_date > datetime.today().astimezone(tz=TZ_TAIPEI):
+        logger.debug("Start date exceeds today")
+        return msg.events.new.invalid_selection_for_start_date_exceeds_today(chat.payload)
+
     chat.payload["start_date"] = start_date.isoformat()  # datetime is not JSON serializable
     chat.current_step = NewEventSteps.ENABLE_REMINDER.value
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-
     logger.info(f"Adding to payload: start_date={chat.payload['start_date']}")
     logger.info(f"Setting current_step={chat.current_step}")
     return msg.events.new.enable_reminder(chat.payload)

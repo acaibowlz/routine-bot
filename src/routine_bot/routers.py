@@ -9,7 +9,7 @@ from linebot.v3.messaging import ApiClient, MessagingApi, PushMessageRequest
 
 import routine_bot.db.users as user_db
 import routine_bot.messages as msg
-from routine_bot.constants import DATABASE_URL, ENV, RUNNER_TOKEN, TZ_TAIPEI
+from routine_bot.constants import DATABASE_URL, ENV, SENDER_TOKEN, TZ_TAIPEI
 from routine_bot.handlers.main import configuration, handler
 from routine_bot.handlers.reminder import send_reminders_for_shared_events, send_reminders_for_user_owned_events
 from routine_bot.utils import format_logger_name
@@ -47,30 +47,32 @@ async def webhook(request: Request):
     return Response(status_code=status.HTTP_200_OK)
 
 
-@router.post("/reminder/run")
-async def run_reminder(request: Request):
+@router.post("/reminder/send")
+async def send_reminder(request: Request):
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or invalid Authorization header")
     token = auth_header.split(" ")[1]
-    if token != RUNNER_TOKEN:
+    if token != SENDER_TOKEN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
 
-    logger.info("Starting the reminder process")
+    logger.info("Starting the reminder sending process")
     with psycopg.connect(conninfo=DATABASE_URL) as conn, ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
         time_slot = datetime.now(TZ_TAIPEI).replace(minute=0, second=0, microsecond=0).time()
+        logger.info(f"Current time slot: {time_slot}")
         users = user_db.list_active_users_by_notification_slot(time_slot, conn)
+        logger.info(f"Number of users to process: {len(users)}")
         for user in users:
             if user.is_limited:
-                logger.info("Failed to send reminders: reached max events allowed")
+                logger.info(f"User {user.user_id} failed to receive reminders: reached max events allowed")
                 error_msg = msg.info.reminder_disabled()
                 line_bot_api.push_message(PushMessageRequest(to=user.user_id, messages=[error_msg]))
                 continue
-            logger.info(f"Sending reminders for user: {user.user_id}")
+            logger.info(f"Processing for user: {user.user_id}")
             send_reminders_for_user_owned_events(user.user_id, line_bot_api, conn)
             send_reminders_for_shared_events(user.user_id, line_bot_api, conn)
-            logger.info(f"Finished sending reminders for user: {user.user_id}")
-    logger.info("Reminder process completed")
+            logger.info(f"Processing completed for user: {user.user_id}")
+    logger.info("Reminder sending process completed")
 
     return Response(status_code=status.HTTP_200_OK)

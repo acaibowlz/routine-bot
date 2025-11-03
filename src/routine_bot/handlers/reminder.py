@@ -16,11 +16,11 @@ def send_reminders_for_user_owned_events(user_id: str, line_bot_api: MessagingAp
     if not len(events):
         logger.info("No overdue event found")
         return
-    logger.info(f"{len(events)} overdue events found")
+    logger.info(f"Found {len(events)} overdue events")
     for event in events:
         push_msg = msg.reminder.user_owned_event(event)
         line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[push_msg]))
-        logger.info(f"Notification sent: {event.event_id}")
+        logger.info(f"Sent reminder for event: {event.event_id}")
 
 
 def send_reminders_for_shared_events(user_id: str, line_bot_api: MessagingApi, conn: psycopg.Connection) -> None:
@@ -28,9 +28,9 @@ def send_reminders_for_shared_events(user_id: str, line_bot_api: MessagingApi, c
     if not len(events):
         logger.info("No overdue shared event found")
         return
-    logger.info(f"{len(events)} overdue shared events found")
+    logger.info(f"Found: {len(events)} overdue shared events")
     for event in events:
         owner_profile = get_user_profile(event.user_id)
         push_msg = msg.reminder.shared_event(event, owner_profile)
         line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[push_msg]))
-        logger.info(f"Notification sent: {event.event_id}")
+        logger.info(f"Sent reminder for event: {event.event_id}")

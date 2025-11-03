@@ -67,7 +67,7 @@ def invalid_input_for_option(chat_payload: dict[str, str]) -> TemplateMessage:
             MessageAction(label="更改提醒時段", text="更改提醒時段"),
         ],
     )
-    msg = TemplateMessage(altText="⚙️ 使用者設定 ⚠️ 輸入無效，請再次選擇設定選項", template=template)
+    msg = TemplateMessage(altText="⚙️ 使用者設定 ⚠️ 輸入無效，請重新選擇設定選項", template=template)
     return msg
 
 
@@ -81,7 +81,7 @@ def invalid_input_for_notification_slot(chat_payload: dict[str, str]) -> Templat
             )
         ],
     )
-    msg = TemplateMessage(altText="⚙️ 更改提醒時段 ⚠️ 輸入無效，請再次選擇提醒時段", template=template)
+    msg = TemplateMessage(altText="⚙️ 更改提醒時段 ⚠️ 輸入無效，請重新選擇提醒時段", template=template)
     return msg
 
 
@@ -95,5 +95,5 @@ def invalid_notification_slot(chat_payload: dict[str, str]) -> TemplateMessage:
             )
         ],
     )
-    msg = TemplateMessage(altText="⚙️ 更改提醒時段 ⚠️ 輸入無效，請再次選擇提醒時段", template=template)
+    msg = TemplateMessage(altText="⚙️ 更改提醒時段 ⚠️ 輸入無效，請重新選擇提醒時段", template=template)
     return msg

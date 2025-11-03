@@ -80,7 +80,7 @@ def list_active_users_by_notification_slot(time_slot: time, conn: psycopg.Connec
         return [UserData(*row) for row in result]
 
 
-def increment_user_event_count(user_id: str, by: int, conn: psycopg.Connection) -> int:
+def increment_user_event_count(user_id: str, by: int, conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -93,7 +93,8 @@ def increment_user_event_count(user_id: str, by: int, conn: psycopg.Connection) 
         )
         result = cur.fetchone()
         assert result is not None, "User is not suppose to be missing"
-        return result[0]
+        logger.debug(f"Updating event_count for user: {user_id}")
+        logger.debugf(f"New event_count={result[0]}")
 
 
 def set_user_activeness(user_id: str, to: bool, conn: psycopg.Connection) -> None:
