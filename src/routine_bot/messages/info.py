@@ -38,6 +38,20 @@ def max_events_reached() -> FlexMessage:
     return msg
 
 
+def reminder_disabled() -> FlexMessage:
+    bubble = flex_bubble_template(
+        title="🔕 提醒功能已停用",
+        lines=[
+            f"🔒 你已超過免費方案的 {FREE_PLAN_MAX_EVENTS} 個事件上限",
+            "💡 你可以選擇：",
+            "🗑️ 刪除超量事件，恢復提醒功能",
+            "🚀 升級至 premium，享受提醒無上限",
+        ],
+    )
+    msg = FlexMessage(altText="🔕 提醒功能已停用，請刪除超量事件或升級至 premium", contents=bubble)
+    return msg
+
+
 def no_ongoing_chat() -> TextMessage:
     return TextMessage(text="沒有進行中的操作可以取消🤣")
 

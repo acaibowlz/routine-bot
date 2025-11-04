@@ -31,7 +31,6 @@ from routine_bot.handlers.events import (
     process_new_event_start_date_selection,
 )
 from routine_bot.handlers.user import (
-    create_menu_chat,
     create_user_settings_chat,
     handle_user_settings_chat,
     process_user_settings_new_notification_slot_selection,
@@ -57,7 +56,9 @@ def _handle_command(cmd: str, user_id: str, conn: psycopg.Connection) -> Message
     elif cmd == Command.SETTINGS:
         return create_user_settings_chat(user_id, conn)
     elif cmd == Command.MENU:
-        return create_menu_chat(user_id, conn)
+        return msg.user.menu.format_menu()
+    elif cmd == Command.HELP:
+        return msg.user.help.format_help()
     else:
         raise AssertionError(f"Unknown command in _handle_command: {cmd}")
 

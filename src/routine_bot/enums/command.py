@@ -9,6 +9,7 @@ class Command(StrEnum):
     ABORT = "/abort"
     SETTINGS = "/settings"
     MENU = "/menu"
+    HELP = "/help"
 
 
 SUPPORTED_COMMANDS = {command.value for command in Command}
