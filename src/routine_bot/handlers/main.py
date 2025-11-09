@@ -152,7 +152,7 @@ def handle_user_blocked(event: UnfollowEvent) -> None:
 
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
         if not user_db.user_exists(user_id, conn):
-            logger.warning("User not found in database")
+            logger.warning("User is not found in the database")
         else:
             user_db.set_user_activeness(user_id, False, conn)
             event_db.set_all_events_activeness_by_user(user_id, False, conn)
