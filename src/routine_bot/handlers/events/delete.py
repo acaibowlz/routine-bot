@@ -1,5 +1,6 @@
 import logging
 import uuid
+from enum import StrEnum, auto
 
 import psycopg
 from linebot.v3.messaging import TemplateMessage, TextMessage
@@ -11,11 +12,15 @@ import routine_bot.db.updates as update_db
 import routine_bot.db.users as user_db
 import routine_bot.messages as msg
 from routine_bot.enums.chat import ChatStatus, ChatType
-from routine_bot.enums.steps import DeleteEventSteps
 from routine_bot.models import ChatData
 from routine_bot.utils import format_logger_name, validate_event_name
 
 logger = logging.getLogger(format_logger_name(__name__))
+
+
+class DeleteEventSteps(StrEnum):
+    INPUT_NAME = auto()
+    CONFIRM_DELETION = auto()
 
 
 def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | TemplateMessage:
@@ -50,7 +55,7 @@ def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connectio
     if event is None:
         raise ValueError(f"Event not found: {event_id}")
 
-    if text == "刪除事件":
+    if text == "刪除吐司":
         share_db.delete_shares_by_event_id(event_id, conn)
         update_db.delete_updates_by_event_id(event_id, conn)
         event_db.delete_event(event_id, conn)
@@ -76,7 +81,7 @@ def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connectio
         logger.info("Cancelling deletion")
         logger.info(f"Setting current_step={chat.current_step}")
         logger.info(f"Finishing chat: {chat.chat_id}")
-        return msg.events.delete.cancelled(event.event_name)
+        return msg.events.delete.cancelled()
     else:
         logger.info(f"Invalid delete confirmation input: {text}")
         return msg.events.delete.invalid_delete_confirmation(event)

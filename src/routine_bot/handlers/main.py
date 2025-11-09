@@ -8,9 +8,14 @@ from linebot.v3.messaging import (
     Message,
     MessagingApi,
     ReplyMessageRequest,
-    TextMessage,
 )
-from linebot.v3.webhooks import FollowEvent, MessageEvent, PostbackEvent, TextMessageContent, UnfollowEvent
+from linebot.v3.webhooks import (
+    FollowEvent,
+    MessageEvent,
+    PostbackEvent,
+    TextMessageContent,
+    UnfollowEvent,
+)
 
 import routine_bot.db.chats as chat_db
 import routine_bot.db.events as event_db
@@ -19,18 +24,19 @@ import routine_bot.messages as msg
 from routine_bot.constants import DATABASE_URL, LINE_CHANNEL_ACCESS_TOKEN, LINE_CHANNEL_SECRET
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.command import SUPPORTED_COMMANDS, Command
-from routine_bot.enums.steps import NewEventSteps, UserSettingsSteps
 from routine_bot.handlers.events import (
+    NewEventSteps,
     create_delete_event_chat,
     create_find_event_chat,
     create_new_event_chat,
-    create_view_all_chat,
     handle_delete_event_chat,
     handle_find_event_chat,
     handle_new_event_chat,
+    handle_view_all_chat,
     process_new_event_start_date_selection,
 )
 from routine_bot.handlers.user import (
+    UserSettingsSteps,
     create_user_settings_chat,
     handle_user_settings_chat,
     process_user_settings_new_notification_slot_selection,
@@ -52,7 +58,7 @@ def _handle_command(cmd: str, user_id: str, conn: psycopg.Connection) -> Message
     elif cmd == Command.DELETE:
         return create_delete_event_chat(user_id, conn)
     elif cmd == Command.VIEW_ALL:
-        return create_view_all_chat(user_id, conn)
+        return handle_view_all_chat(user_id, conn)
     elif cmd == Command.SETTINGS:
         return create_user_settings_chat(user_id, conn)
     elif cmd == Command.MENU:
@@ -128,7 +134,10 @@ def handle_user_added(event: FollowEvent) -> None:
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
         line_bot_api.reply_message(
-            ReplyMessageRequest(reply_token=event.reply_token, messages=[TextMessage(text="hello my new friend!")])
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[msg.user.welcome.format_welcome()],
+            )
         )
 
 

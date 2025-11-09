@@ -1,9 +1,7 @@
 from datetime import datetime
 
 from dateutil.relativedelta import relativedelta
-from linebot.v3.messaging import (
-    FlexMessage,
-)
+from linebot.v3.messaging import FlexMessage
 
 from routine_bot.constants import TZ_TAIPEI
 from routine_bot.messages.utils import flex_bubble_template, parse_time_delta
@@ -13,8 +11,8 @@ from routine_bot.models import EventData
 def user_owned_event(event: EventData) -> FlexMessage:
     if event.next_due_at is None:
         raise AttributeError(f"Event {event.event_id} has reminder enabled, but the next due date cannot be found")
-    overdue_by = relativedelta(datetime.now(TZ_TAIPEI), event.next_due_at)
-    overdue_by = parse_time_delta(overdue_by)
+    time_delta = relativedelta(datetime.now(TZ_TAIPEI), event.next_due_at)
+    overdue_by = parse_time_delta(time_delta)
 
     lines = [
         f"✅ 上次完成：{event.last_done_at.strftime('%Y-%m-%d')}",
@@ -39,8 +37,8 @@ def user_owned_event(event: EventData) -> FlexMessage:
 def shared_event(event: EventData, owner_profile: dict[str, str]) -> FlexMessage:
     if event.next_due_at is None:
         raise AttributeError(f"Event {event.event_id} has reminder enabled, but the next due date cannot be found")
-    overdue_by = relativedelta(datetime.now(TZ_TAIPEI), event.next_due_at)
-    overdue_by = parse_time_delta(overdue_by)
+    time_delta = relativedelta(datetime.now(TZ_TAIPEI), event.next_due_at)
+    overdue_by = parse_time_delta(time_delta)
 
     lines = [
         f"🫂 來自共享：{owner_profile.get('displayName')}",

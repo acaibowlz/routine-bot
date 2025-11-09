@@ -1,10 +1,5 @@
 from dateutil.relativedelta import relativedelta
-from linebot.v3.messaging import (
-    FlexBox,
-    FlexBubble,
-    FlexSeparator,
-    FlexText,
-)
+from linebot.v3.messaging import FlexBox, FlexBubble, FlexSeparator, FlexText
 
 
 def flex_text_bold_line(text: str) -> FlexText:
@@ -34,14 +29,22 @@ def flex_bubble_template(title: str, lines: list[str]) -> FlexBubble:
     return bubble
 
 
-def parse_time_delta(timedelta_: relativedelta) -> str:
-    time_diff = ""
-    if timedelta_.years:
-        time_diff = f"{timedelta_.years} 年"
-    if timedelta_.months:
-        time_diff = f"{time_diff} {timedelta_.months} 個月"
-    if timedelta_.weeks:
-        time_diff = f"{time_diff} {timedelta_.weeks} 週"
-    if timedelta_.days:
-        time_diff = f"{time_diff} {timedelta_.days} 日"
-    return time_diff.lstrip()
+def parse_time_delta(time_delta: relativedelta) -> str:
+    parts = []
+    if time_delta.years:
+        parts.append(f"{time_delta.years} 年")
+    if time_delta.months:
+        parts.append(f"{time_delta.months} 個月")
+    if time_delta.weeks:
+        parts.append(f"{time_delta.weeks} 週")
+    if time_delta.days:
+        parts.append(f"{time_delta.days} 天")
+
+    if not parts:
+        return "今天"
+
+    if len(parts) > 1:
+        time_diff = "又 ".join([" ".join(parts[:-1]), parts[-1]])
+    else:
+        time_diff = parts[0]
+    return time_diff

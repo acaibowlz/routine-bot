@@ -1,15 +1,11 @@
 import logging
 import uuid
 from datetime import UTC, datetime
+from enum import StrEnum, auto
 
 import psycopg
 from dateutil.relativedelta import relativedelta
-from linebot.v3.messaging import (
-    FlexMessage,
-    Message,
-    TemplateMessage,
-    TextMessage,
-)
+from linebot.v3.messaging import FlexMessage, Message, TemplateMessage, TextMessage
 from linebot.v3.webhooks import PostbackEvent
 
 from routine_bot import messages as msg
@@ -19,12 +15,18 @@ from routine_bot.db import events as event_db
 from routine_bot.db import updates as update_db
 from routine_bot.db import users as user_db
 from routine_bot.enums.chat import ChatStatus, ChatType
-from routine_bot.enums.steps import NewEventSteps
 from routine_bot.enums.units import CycleUnit
 from routine_bot.models import ChatData, EventData, UpdateData
 from routine_bot.utils import format_logger_name, parse_event_cycle, validate_event_name
 
 logger = logging.getLogger(format_logger_name(__name__))
+
+
+class NewEventSteps(StrEnum):
+    INPUT_NAME = auto()
+    SELECT_START_DATE = auto()
+    ENABLE_REMINDER = auto()
+    SELECT_EVENT_CYCLE = auto()
 
 
 def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | TemplateMessage:
@@ -132,6 +134,8 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
     if text.lower() == "example":
         logger.info("Showing event cycle example")
         return msg.events.new.event_cycle_example()
+    # remove plural form
+    text = text.rstrip("s")
     increment, unit = parse_event_cycle(text)
     if increment is None or unit is None:
         logger.info(f"Invalid event cycle input: {text}")

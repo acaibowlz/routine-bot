@@ -1,12 +1,7 @@
-from linebot.v3.messaging import (
-    FlexMessage,
-    MessageAction,
-    QuickReply,
-    QuickReplyItem,
-)
+from linebot.v3.messaging import FlexMessage, MessageAction, QuickReply, QuickReplyItem
 
 from routine_bot.enums.command import Command
-from routine_bot.messages.utils import flex_bubble_template, flex_text_bold_line, flex_text_normal_line
+from routine_bot.messages.utils import flex_bubble_template
 
 
 def format_welcome() -> FlexMessage:

@@ -1,5 +1,6 @@
 import logging
 import uuid
+from enum import StrEnum, auto
 
 import psycopg
 from linebot.v3.messaging import FlexMessage, TextMessage
@@ -9,11 +10,14 @@ import routine_bot.db.events as event_db
 import routine_bot.db.updates as update_db
 import routine_bot.messages as msg
 from routine_bot.enums.chat import ChatStatus, ChatType
-from routine_bot.enums.steps import FindEventSteps
 from routine_bot.models import ChatData
 from routine_bot.utils import format_logger_name, validate_event_name
 
 logger = logging.getLogger(format_logger_name(__name__))
+
+
+class FindEventSteps(StrEnum):
+    INPUT_NAME = auto()
 
 
 def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage | TextMessage:

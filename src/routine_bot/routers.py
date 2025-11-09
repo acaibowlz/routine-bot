@@ -26,7 +26,10 @@ async def webhook(request: Request):
     """
     signature = request.headers.get("X-Line-Signature")
     if signature is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Line-Signature header not found")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Line-Signature header not found",
+        )
 
     body = await request.body()
 
@@ -42,7 +45,10 @@ async def webhook(request: Request):
             logger.error(str(e), exc_info=True)
         else:
             logger.error(str(e))
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal Server Error",
+        )
 
     return Response(status_code=status.HTTP_200_OK)
 
@@ -51,13 +57,19 @@ async def webhook(request: Request):
 async def send_reminder(request: Request):
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing or invalid Authorization header")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+        )
     token = auth_header.split(" ")[1]
     if token != SENDER_TOKEN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
 
     logger.info("Starting the reminder sending process")
-    with psycopg.connect(conninfo=DATABASE_URL) as conn, ApiClient(configuration) as api_client:
+    with (
+        psycopg.connect(conninfo=DATABASE_URL) as conn,
+        ApiClient(configuration) as api_client,
+    ):
         line_bot_api = MessagingApi(api_client)
         time_slot = datetime.now(TZ_TAIPEI).replace(minute=0, second=0, microsecond=0).time()
         logger.info(f"Current time slot: {time_slot}")

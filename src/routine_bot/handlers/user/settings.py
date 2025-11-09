@@ -1,24 +1,29 @@
 import logging
 import uuid
 from datetime import datetime
+from enum import StrEnum, auto
 
 import psycopg
-from linebot.v3.messaging import (
-    Message,
-    TemplateMessage,
-)
+from linebot.v3.messaging import Message, TemplateMessage
 from linebot.v3.webhooks import PostbackEvent
 
 import routine_bot.db.chats as chat_db
 import routine_bot.db.users as user_db
 import routine_bot.messages as msg
 from routine_bot.enums.chat import ChatStatus, ChatType
-from routine_bot.enums.steps import UserSettingsSteps
-from routine_bot.enums.user_settings import UserSettingsOptions
 from routine_bot.models import ChatData
 from routine_bot.utils import format_logger_name
 
 logger = logging.getLogger(format_logger_name(__name__))
+
+
+class UserSettingsSteps(StrEnum):
+    SELECT_OPTION = auto()
+    SELECT_NEW_NOTIFICATION_SLOT = auto()
+
+
+class UserSettingsOptions(StrEnum):
+    NOTIFICATION_SLOT = auto()
 
 
 def _prepare_new_notification_selection(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
@@ -54,6 +59,7 @@ def process_user_settings_new_notification_slot_selection(
     else:
         time_slot = datetime.strptime(time_slot, "%H:%M").time()
         logger.info(f"New notification slot: {time_slot}")
+        chat.payload["new_slot"] = time_slot.strftime("%H:%M")
         user_db.set_user_notification_slot(chat.user_id, time_slot, conn)
         chat_db.set_chat_current_step(chat.chat_id, None, conn)
         chat_db.set_chat_status(chat.chat_id, ChatStatus.COMPLETED.value, conn)
