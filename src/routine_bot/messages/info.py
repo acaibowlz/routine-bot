@@ -63,4 +63,4 @@ def no_ongoing_chat() -> TextMessage:
 
 
 def ongoing_chat_aborted() -> TextMessage:
-    return TextMessage(text="已幫你停下目前的操作囉～🍞\n接下來想做什麼呢？\n輸入新的指令試試吧！✨")
+    return TextMessage(text="已幫你停下目前的操作囉～\n接下來想做什麼呢？\n輸入新的指令試試吧！🍞")

@@ -55,7 +55,7 @@ def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connectio
     if event is None:
         raise ValueError(f"Event not found: {event_id}")
 
-    if text == "刪除吐司":
+    if text == "刪除事項":
         share_db.delete_shares_by_event_id(event_id, conn)
         update_db.delete_updates_by_event_id(event_id, conn)
         event_db.delete_event(event_id, conn)
