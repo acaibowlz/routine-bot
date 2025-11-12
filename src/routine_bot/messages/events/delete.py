@@ -5,7 +5,7 @@ from routine_bot.models import EventData
 
 
 def prompt_for_event_name() -> TextMessage:
-    return TextMessage(text="請輸入你要刪除的事項名稱 🍞")
+    return TextMessage(text="請輸入要刪除的事項名稱 🍞")
 
 
 def comfirm_event_deletion(event: EventData) -> TemplateMessage:
@@ -36,7 +36,7 @@ def comfirm_event_deletion(event: EventData) -> TemplateMessage:
     return msg
 
 
-def deleted(event_name: str) -> TextMessage:
+def succeeded(event_name: str) -> TextMessage:
     return TextMessage(text=f"✅［{event_name}］已成功刪除！")
 
 

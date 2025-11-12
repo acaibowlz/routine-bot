@@ -25,7 +25,7 @@ def _create_users_table(cur: psycopg.Cursor) -> None:
     - event_count :
         Total number of events owned by the user.
         Users on free plan can have up to 5 events.
-    - notification_slot :
+    - time_slot :
         The user's preferred daily notification hour (on the hour, HH:00).
         Used to determine when daily reminder jobs should be sent.
         This value represents a repeating time slot every day, not a specific date-time.
@@ -48,7 +48,7 @@ def _create_users_table(cur: psycopg.Cursor) -> None:
             user_id TEXT PRIMARY KEY,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             event_count INTEGER NOT NULL DEFAULT 0,
-            notification_slot TIME NOT NULL DEFAULT '00:00',
+            time_slot TIME NOT NULL DEFAULT '00:00',
             is_premium BOOLEAN NOT NULL DEFAULT FALSE,
             premium_until TIMESTAMPTZ,
             is_active BOOLEAN NOT NULL DEFAULT TRUE
@@ -147,31 +147,27 @@ def _create_events_table(cur: psycopg.Cursor) -> None:
     )
 
 
-def _create_updates_table(cur: psycopg.Cursor) -> None:
+def _create_records_table(cur: psycopg.Cursor) -> None:
     """
-    Updates Table
+    Records Table
     --------------
-    - update_id :
-        Unique identifier for each update entry.
-        This table records every instance in which a user updates
-        the completion time of an event.
+    - record_id :
+        Unique identifier for each completion record.
     - created_at :
-        Timestamp indicating when the update entry was created.
+        When this record entry was created.
     - event_id :
-        Identifier of the event associated with this update.
+        ID of the related event.
     - event_name :
-        Name of the event associated with this update.
+        Name of the related event.
     - user_id :
-        Identifier of the user who owns the event.
+        ID of the user who owns the event.
     - done_at :
-        Timestamp representing the newly updated completion time of the event.
-        Event completion times are stored with day-level precision,
-        with the time component normalized to 00:00 (UTC+8).
+        Date the event was marked as completed (00:00 UTC+8 precision).
     """
     cur.execute(
         """
-        CREATE TABLE updates (
-            update_id TEXT PRIMARY KEY,
+        CREATE TABLE records (
+            record_id TEXT PRIMARY KEY,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             event_id TEXT NOT NULL REFERENCES events(event_id),
             event_name TEXT NOT NULL,
@@ -219,7 +215,7 @@ def init_db(conn: psycopg.Connection):
         "users": _create_users_table,
         "chats": _create_chats_table,
         "events": _create_events_table,
-        "updates": _create_updates_table,
+        "records": _create_records_table,
         "shares": _create_shares_table,
     }
     with conn.cursor() as cur:

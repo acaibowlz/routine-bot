@@ -50,8 +50,8 @@ class EventData:
 
 
 @dataclass
-class UpdateData:
-    update_id: str
+class RecordData:
+    record_id: str
     event_id: str
     event_name: str
     user_id: str

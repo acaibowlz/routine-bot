@@ -24,22 +24,24 @@ import routine_bot.messages as msg
 from routine_bot.constants import DATABASE_URL, LINE_CHANNEL_ACCESS_TOKEN, LINE_CHANNEL_SECRET
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.command import SUPPORTED_COMMANDS, Command
+from routine_bot.enums.steps import DoneEventSteps, NewEventSteps, UserSettingsSteps
 from routine_bot.handlers.events import (
-    NewEventSteps,
     create_delete_event_chat,
+    create_done_event_chat,
     create_find_event_chat,
     create_new_event_chat,
     handle_delete_event_chat,
+    handle_done_event_chat,
     handle_find_event_chat,
     handle_new_event_chat,
     handle_view_all_chat,
-    process_new_event_start_date_selection,
+    process_done_date_selection,
+    process_start_date_selection,
 )
-from routine_bot.handlers.user import (
-    UserSettingsSteps,
+from routine_bot.handlers.users import (
     create_user_settings_chat,
     handle_user_settings_chat,
-    process_user_settings_new_notification_slot_selection,
+    process_new_time_slot_selection,
 )
 from routine_bot.models import ChatData
 from routine_bot.utils import format_logger_name, sanitize_msg
@@ -59,12 +61,14 @@ def _handle_command(cmd: str, user_id: str, conn: psycopg.Connection) -> Message
         return create_delete_event_chat(user_id, conn)
     elif cmd == Command.VIEW_ALL:
         return handle_view_all_chat(user_id, conn)
+    elif cmd == Command.DONE:
+        return create_done_event_chat(user_id, conn)
     elif cmd == Command.SETTINGS:
         return create_user_settings_chat(user_id, conn)
     elif cmd == Command.MENU:
-        return msg.user.menu.format_menu()
+        return msg.users.menu.format_menu()
     elif cmd == Command.HELP:
-        return msg.user.help.format_help()
+        return msg.users.help.format_help()
     else:
         raise AssertionError(f"Unknown command in _handle_command: {cmd}")
 
@@ -76,6 +80,8 @@ def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) ->
         return handle_find_event_chat(text, chat, conn)
     elif chat.chat_type == ChatType.DELETE_EVENT:
         return handle_delete_event_chat(text, chat, conn)
+    elif chat.chat_type == ChatType.DONE_EVENT:
+        return handle_done_event_chat(text, chat, conn)
     elif chat.chat_type == ChatType.USER_SETTINGS:
         return handle_user_settings_chat(text, chat, conn)
     else:
@@ -91,7 +97,7 @@ def _get_reply_message(text: str, user_id: str) -> Message:
             if text == Command.ABORT:
                 return msg.info.no_ongoing_chat()
             if not text.startswith("/"):
-                return msg.user.greeting.random()
+                return msg.users.greeting.random()
             if text not in SUPPORTED_COMMANDS:
                 return msg.info.unrecognized_command()
             return _handle_command(text, user_id, conn)
@@ -115,12 +121,12 @@ def _get_reply_message(text: str, user_id: str) -> Message:
 
 
 @handler.add(FollowEvent)
-def handle_user_added(event: FollowEvent) -> None:
-    if event.source is None:
+def handle_user_added(follow_event: FollowEvent) -> None:
+    if follow_event.source is None:
         raise AttributeError("Source not found in the event object")
-    if event.source.user_id is None:
+    if follow_event.source.user_id is None:
         raise AttributeError("User ID no found in the event source object")
-    user_id = event.source.user_id
+    user_id = follow_event.source.user_id
 
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
         if not user_db.user_exists(user_id, conn):
@@ -135,19 +141,19 @@ def handle_user_added(event: FollowEvent) -> None:
         line_bot_api = MessagingApi(api_client)
         line_bot_api.reply_message(
             ReplyMessageRequest(
-                reply_token=event.reply_token,
-                messages=[msg.user.welcome.format_welcome()],
+                reply_token=follow_event.reply_token,
+                messages=[msg.users.welcome.format_welcome()],
             )
         )
 
 
 @handler.add(UnfollowEvent)
-def handle_user_blocked(event: UnfollowEvent) -> None:
-    if not event.source:
+def handle_user_blocked(unfollow_event: UnfollowEvent) -> None:
+    if not unfollow_event.source:
         raise AttributeError("Source not found in the event object")
-    if not event.source.user_id:
+    if not unfollow_event.source.user_id:
         raise AttributeError("User ID no found in the event source")
-    user_id = event.source.user_id
+    user_id = unfollow_event.source.user_id
     logger.info(f"Blocked by: {user_id}")
 
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
@@ -159,40 +165,39 @@ def handle_user_blocked(event: UnfollowEvent) -> None:
 
 
 @handler.add(PostbackEvent)
-def handle_postback(event: PostbackEvent) -> None:
-    logger.debug(f"Postback data: {event.postback.data}")
-    logger.debug(f"Postback params: {event.postback.params}")
-    chat_id = event.postback.data
+def handle_postback(postback_event: PostbackEvent) -> None:
+    logger.debug(f"Postback data: {postback_event.postback.data}")
+    logger.debug(f"Postback params: {postback_event.postback.params}")
+    chat_id = postback_event.postback.data
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
         chat = chat_db.get_chat(chat_id, conn)
         if chat is None:
             raise ValueError(f"Chat not found: {chat_id}")
         # only proceed if status and current step matches
         if chat.chat_type == ChatType.NEW_EVENT and chat.current_step == NewEventSteps.SELECT_START_DATE:
-            reply_msg = process_new_event_start_date_selection(event, chat, conn)
-        elif (
-            chat.chat_type == ChatType.USER_SETTINGS
-            and chat.current_step == UserSettingsSteps.SELECT_NEW_NOTIFICATION_SLOT
-        ):
-            reply_msg = process_user_settings_new_notification_slot_selection(event, chat, conn)
+            reply_msg = process_start_date_selection(postback_event, chat, conn)
+        elif chat.chat_type == ChatType.USER_SETTINGS and chat.current_step == UserSettingsSteps.SELECT_NEW_TIME_SLOT:
+            reply_msg = process_new_time_slot_selection(postback_event, chat, conn)
+        elif chat.chat_type == ChatType.DONE_EVENT and chat.current_step == DoneEventSteps.SELECT_DONE_DATE:
+            reply_msg = process_done_date_selection(postback_event, chat, conn)
         else:
             return None
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message(ReplyMessageRequest(reply_token=event.reply_token, messages=[reply_msg]))
+        line_bot_api.reply_message(ReplyMessageRequest(reply_token=postback_event.reply_token, messages=[reply_msg]))
 
 
 @handler.add(MessageEvent, message=TextMessageContent)
-def handle_text_message(event: MessageEvent) -> None:
-    if not event.source:
+def handle_text_message(msg_event: MessageEvent) -> None:
+    if not msg_event.source:
         raise AttributeError("Source not found in the event object")
-    if not event.source.user_id:
+    if not msg_event.source.user_id:
         raise AttributeError("User ID no found in the event source")
-    user_id = event.source.user_id
+    user_id = msg_event.source.user_id
 
-    text = sanitize_msg(event.message.text)
+    text = sanitize_msg(msg_event.message.text)
     reply_msg = _get_reply_message(text=text, user_id=user_id)
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
-        line_bot_api.reply_message(ReplyMessageRequest(reply_token=event.reply_token, messages=[reply_msg]))
+        line_bot_api.reply_message(ReplyMessageRequest(reply_token=msg_event.reply_token, messages=[reply_msg]))

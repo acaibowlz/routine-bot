@@ -1,7 +1,6 @@
 import logging
 import uuid
 from datetime import UTC, datetime
-from enum import StrEnum, auto
 
 import psycopg
 from dateutil.relativedelta import relativedelta
@@ -12,21 +11,15 @@ from routine_bot import messages as msg
 from routine_bot.constants import TZ_TAIPEI
 from routine_bot.db import chats as chat_db
 from routine_bot.db import events as event_db
-from routine_bot.db import updates as update_db
+from routine_bot.db import records as record_db
 from routine_bot.db import users as user_db
 from routine_bot.enums.chat import ChatStatus, ChatType
+from routine_bot.enums.steps import NewEventSteps
 from routine_bot.enums.units import CycleUnit
-from routine_bot.models import ChatData, EventData, UpdateData
+from routine_bot.models import ChatData, EventData, RecordData
 from routine_bot.utils import format_logger_name, parse_event_cycle, validate_event_name
 
 logger = logging.getLogger(format_logger_name(__name__))
-
-
-class NewEventSteps(StrEnum):
-    INPUT_NAME = auto()
-    SELECT_START_DATE = auto()
-    ENABLE_REMINDER = auto()
-    SELECT_EVENT_CYCLE = auto()
 
 
 def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | TemplateMessage:
@@ -56,9 +49,7 @@ def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connectio
 
 
 # this function is called by handle_postback in handlers/main.py
-def process_new_event_start_date_selection(
-    postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection
-) -> TemplateMessage:
+def process_start_date_selection(postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
     logger.info("Processing start date selection")
     if postback.postback.params is None:
         raise AttributeError("Postback contains no data")
@@ -110,14 +101,14 @@ def _process_disable_reminder(chat: ChatData, conn: psycopg.Connection) -> FlexM
     logger.info(f"│ Last Done: {event.last_done_at.astimezone(UTC)}")
     logger.info("└───────────────────────────────────────────")
 
-    update = UpdateData(
-        update_id=str(uuid.uuid4()),
+    record = RecordData(
+        record_id=str(uuid.uuid4()),
         event_id=event_id,
         event_name=chat.payload["event_name"],
         user_id=chat.user_id,
         done_at=datetime.fromisoformat(chat.payload["start_date"]),
     )
-    update_db.add_update(update, conn)
+    record_db.add_record(record, conn)
     user_db.increment_user_event_count(chat.user_id, by=1, conn=conn)
 
     chat.current_step = None
@@ -140,7 +131,6 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
     if increment is None or unit is None:
         logger.info(f"Invalid event cycle input: {text}")
         return msg.events.new.invalid_input_for_event_cycle(chat.payload)
-    chat.payload["event_cycle"] = text
 
     start_date = datetime.fromisoformat(chat.payload["start_date"])
     offset = relativedelta()
@@ -158,7 +148,7 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
         user_id=chat.user_id,
         event_name=chat.payload["event_name"],
         reminder_enabled=True,
-        event_cycle=chat.payload["event_cycle"],
+        event_cycle=f"{increment} {unit}",
         last_done_at=start_date,
         next_due_at=next_due_at,
         share_count=0,
@@ -176,16 +166,18 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
     logger.info(f"│ Next Due: {event.next_due_at.astimezone(UTC)}")
     logger.info("└───────────────────────────────────────────")
 
-    update = UpdateData(
-        update_id=str(uuid.uuid4()),
+    update = RecordData(
+        record_id=str(uuid.uuid4()),
         event_id=event_id,
         event_name=chat.payload["event_name"],
         user_id=chat.user_id,
         done_at=datetime.fromisoformat(chat.payload["start_date"]),
     )
-    update_db.add_update(update, conn)
+    record_db.add_record(update, conn)
     user_db.increment_user_event_count(chat.user_id, by=1, conn=conn)
 
+    chat.payload["event_cycle"] = text
+    chat.payload["next_due_at"] = next_due_at.isoformat()
     chat.current_step = None
     chat.status = ChatStatus.COMPLETED.value
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)

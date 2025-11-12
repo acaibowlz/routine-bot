@@ -95,7 +95,7 @@ def invalid_input_for_notification_slot(
     return msg
 
 
-def invalid_notification_slot(chat_payload: dict[str, str]) -> TemplateMessage:
+def invalid_time_slot(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title="⚙️ 更改提醒時段",
         text="\n🍞 小提醒：分鐘要設成 00 喔\n\n✨ 幫我選個新的提醒時段吧",

@@ -5,8 +5,8 @@ from routine_bot.messages.utils import flex_bubble_template
 
 items = [
     QuickReplyItem(action=MessageAction(label="新增事項", text=Command.NEW.value)),
+    QuickReplyItem(action=MessageAction(label="更新完成紀錄", text=Command.DONE.value)),
     QuickReplyItem(action=MessageAction(label="查詢事項", text=Command.FIND.value)),
-    # QuickReplyItem(action=MessageAction(label="更新事項完成日期", text="/update")),
     # QuickReplyItem(action=MessageAction(label="編輯事項", text="/edit")),
     QuickReplyItem(action=MessageAction(label="刪除事項", text=Command.DELETE.value)),
     QuickReplyItem(action=MessageAction(label="瀏覽所有事項", text=Command.VIEW_ALL.value)),

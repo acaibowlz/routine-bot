@@ -5,6 +5,7 @@ class ChatType(StrEnum):
     NEW_EVENT = auto()
     FIND_EVENT = auto()
     DELETE_EVENT = auto()
+    DONE_EVENT = auto()
     USER_SETTINGS = auto()
 
 

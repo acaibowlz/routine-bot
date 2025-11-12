@@ -17,17 +17,17 @@ def prompt_for_event_name() -> TextMessage:
 def select_start_date(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
-        text="\n💭 要從哪一天開始紀錄這件事呢？\n\n✨ 請選擇開始時間",
-        actions=[DatetimePickerAction(label="選擇開始時間", data=chat_payload["chat_id"], mode="date")],
+        text="\n💭 要從哪一天開始紀錄這件事呢？\n\n✨ 請選擇開始日期",
+        actions=[DatetimePickerAction(label="選擇開始日期", data=chat_payload["chat_id"], mode="date")],
     )
-    msg = TemplateMessage(altText=f"🗓 請選擇［{chat_payload['event_name']}］的開始時間", template=template)
+    msg = TemplateMessage(altText=f"🗓 請選擇［{chat_payload['event_name']}］的開始日期", template=template)
     return msg
 
 
 def enable_reminder(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
-        text=f"\n🗓 開始時間：{chat_payload['start_date'][:10]}\n\n💭 要不要幫這個事項設定提醒呢？\n\n✨ 請選擇",
+        text=f"\n🗓 開始日期：{chat_payload['start_date'][:10]}\n\n💭 要不要幫這個事項設定提醒呢？\n\n✨ 請選擇",
         actions=[
             MessageAction(label="要", text="設定提醒"),
             MessageAction(label="不用", text="不設定提醒"),
@@ -43,7 +43,7 @@ def enable_reminder(chat_payload: dict[str, str]) -> TemplateMessage:
 def select_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
-        text=f"\n🗓 開始時間：{chat_payload['start_date'][:10]}\n\n💭 這個事項應該要多久重複一次呢？\n\n✨ 請選擇週期",
+        text=f"\n🗓 開始日期：{chat_payload['start_date'][:10]}\n\n💭 這個事項應該要多久重複一次呢？\n\n✨ 請選擇週期",
         actions=[
             MessageAction(label="每天", text="1 day"),
             MessageAction(label="每週一次", text="1 week"),
@@ -77,7 +77,7 @@ def event_created_no_reminder(chat_payload: dict[str, str]) -> FlexMessage:
         title="🍞 新事項已準備就緒",
         lines=[
             f"🆕 名稱：{chat_payload['event_name']}",
-            f"🗓 開始時間：{chat_payload['start_date'][:10]}",
+            f"🗓 開始日期：{chat_payload['start_date'][:10]}",
             "🔕 提醒狀態：關閉",
         ],
     )
@@ -92,9 +92,9 @@ def event_created_with_reminder(chat_payload: dict[str, str]) -> FlexMessage:
         title="🍞 新事項已準備就緒",
         lines=[
             f"🆕 名稱：{chat_payload['event_name']}",
-            f"🗓 開始時間：{chat_payload['start_date'][:10]}",
+            f"🗓 開始日期：{chat_payload['start_date'][:10]}",
             f"🔁 重複週期：{chat_payload['event_cycle']}",
-            "🔔 提醒：已開啟",
+            f"🔔 下次提醒：{chat_payload['next_due_at'][:10]}",
         ],
     )
     return FlexMessage(
@@ -106,11 +106,11 @@ def event_created_with_reminder(chat_payload: dict[str, str]) -> FlexMessage:
 def invalid_input_for_start_date(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
-        text="\n⚠️ 嗯～我不太確定你的意思\n\n✨ 幫我用下方按鈕選個開始時間吧",
-        actions=[DatetimePickerAction(label="選擇開始時間", data=chat_payload["chat_id"], mode="date")],
+        text="\n⚠️ 嗯～我不太確定你的意思\n\n✨ 幫我用下方按鈕選個日期吧",
+        actions=[DatetimePickerAction(label="選擇開始日期", data=chat_payload["chat_id"], mode="date")],
     )
     msg = TemplateMessage(
-        altText=f"🍞 新事項［{chat_payload['event_name']}］⚠️ 輸入無效，請重新選擇開始時間",
+        altText=f"🍞 新事項［{chat_payload['event_name']}］⚠️ 輸入無效，請重新選擇開始日期",
         template=template,
     )
     return msg
@@ -121,11 +121,11 @@ def invalid_selection_for_start_date_exceeds_today(
 ) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
-        text="\n⚠️ 開始時間不能比今天晚喔\n\n✨ 幫我重新選個時間吧",
-        actions=[DatetimePickerAction(label="選擇開始時間", data=chat_payload["chat_id"], mode="date")],
+        text="\n⚠️ 開始日期不能比今天晚喔\n\n✨ 幫我重新選個日期吧",
+        actions=[DatetimePickerAction(label="選擇開始日期", data=chat_payload["chat_id"], mode="date")],
     )
     msg = TemplateMessage(
-        altText=f"🍞 新事項［{chat_payload['event_name']}］⚠️ 開始時間不能比今天晚，請重新選擇",
+        altText=f"🍞 新事項［{chat_payload['event_name']}］⚠️ 開始日期不能比今天晚，請重新選擇",
         template=template,
     )
     return msg

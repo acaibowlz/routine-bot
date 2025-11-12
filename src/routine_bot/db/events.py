@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 import psycopg
 
@@ -154,6 +155,19 @@ def set_event_activeness(event_id: str, to: bool, conn: psycopg.Connection) -> N
             (to, event_id),
         )
     logger.debug(f"Updating is_active for event: {event_id}")
+
+
+def set_event_last_done_at(event_id: str, last_done_at: datetime, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE events
+            SET last_done_at = %s
+            WHERE event_id = %s
+            """,
+            (last_done_at, event_id),
+        )
+    logger.debug(f"Updating last_done_at for event: {event_id}")
 
 
 def set_all_events_activeness_by_user(user_id: str, to: bool, conn: psycopg.Connection) -> None:

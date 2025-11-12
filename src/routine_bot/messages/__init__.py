@@ -1,3 +1,4 @@
-from . import events, info, reminder, user
-
-__all__ = ["events", "info", "reminder", "user"]
+from . import events as events
+from . import info as info
+from . import reminder as reminder
+from . import users as users

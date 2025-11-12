@@ -1,7 +1,6 @@
 from datetime import datetime
 from enum import StrEnum, auto
 
-from dateutil.relativedelta import relativedelta
 from linebot.v3.messaging import (
     FlexBox,
     FlexBubble,
@@ -20,7 +19,7 @@ class FindEventSteps(StrEnum):
 
 
 def prompt_for_event_name() -> TextMessage:
-    return TextMessage(text="請輸入你要查詢的事項名稱 🍞")
+    return TextMessage(text="請輸入要查詢的事項名稱 🍞")
 
 
 def format_event_summary(event: EventData, recent_update_times: list[datetime]) -> FlexMessage:
