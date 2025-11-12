@@ -78,6 +78,7 @@ def process_done_date_selection(postback: PostbackEvent, chat: ChatData, conn: p
     logger.info(f"│ Done At: {done_at.astimezone(UTC)}")
     logger.info("└───────────────────────────────────────────")
     if done_at > event.last_done_at:
+        logger.info("The new done date is more recent than the event's latest record, updating it")
         event_db.set_event_last_done_at(event_id, done_at, conn)
 
     chat.payload["done_at"] = done_at.isoformat()
