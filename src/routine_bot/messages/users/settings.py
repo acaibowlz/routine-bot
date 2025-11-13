@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from linebot.v3.messaging import ButtonsTemplate, DatetimePickerAction, FlexMessage, MessageAction, TemplateMessage
 
 from routine_bot.constants import TZ_TAIPEI
+from routine_bot.enums.options import UserSettingsOptions
 from routine_bot.messages.utils import flex_bubble_template
 
 
@@ -11,7 +12,7 @@ def select_option() -> TemplateMessage:
         title="⚙️ 使用者設定",
         text="\n🍞 想調整什麼設定呢？\n\n✨ 幫我選一個吧",
         actions=[
-            MessageAction(label="更改提醒時段", text="更改提醒時段"),
+            MessageAction(label="更改提醒時段", text=f"{UserSettingsOptions.TIME_SLOT.value}"),
         ],
     )
     msg = TemplateMessage(
@@ -21,7 +22,7 @@ def select_option() -> TemplateMessage:
     return msg
 
 
-def select_new_notification_slot(chat_payload: dict[str, str]) -> TemplateMessage:
+def select_new_time_slot(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title="⚙️ 更改提醒時段",
         text=(
@@ -43,7 +44,7 @@ def select_new_notification_slot(chat_payload: dict[str, str]) -> TemplateMessag
     return msg
 
 
-def notification_slot_updated(chat_payload: dict[str, str]) -> FlexMessage:
+def succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     now = datetime.now(TZ_TAIPEI)
     hour = int(chat_payload["new_slot"].split(":")[0])
     time_slot = now.replace(hour=hour, minute=0, second=0, microsecond=0)
@@ -76,7 +77,7 @@ def invalid_input_for_option(chat_payload: dict[str, str]) -> TemplateMessage:
     return msg
 
 
-def invalid_input_for_notification_slot(
+def invalid_input_for_time_slot(
     chat_payload: dict[str, str],
 ) -> TemplateMessage:
     template = ButtonsTemplate(
