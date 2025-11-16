@@ -42,9 +42,9 @@ async def webhook(request: Request):
         )
     except Exception as e:
         if ENV == "develop":
-            logger.error(str(e), exc_info=True)
+            logger.error(e, exc_info=True)
         else:
-            logger.error(str(e))
+            logger.error(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal Server Error",

@@ -36,10 +36,10 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
     assert event is not None, "Event is not suppose to be missing"
     chat.payload["event_id"] = event_id
     chat.current_step = DeleteEventSteps.CONFIRM_DELETION.value
+    logger.debug(f"Adding to payload: event_id={event_id}")
+    logger.info(f"Setting current_step={chat.current_step}")
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info(f"Adding to payload: event_id={event_id}")
-    logger.info(f"Setting current_step={chat.current_step}")
     return msg.events.delete.comfirm_event_deletion(event)
 
 
@@ -51,31 +51,31 @@ def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connectio
         raise ValueError(f"Event not found: {event_id}")
 
     if text == ConfirmDeletionOptions.DELETE:
-        share_db.delete_shares_by_event_id(event_id, conn)
-        record_db.delete_records_by_event_id(event_id, conn)
-        event_db.delete_event(event_id, conn)
-        user_db.increment_user_event_count(event.user_id, -1, conn)
         logger.info("┌── Deleting Event ─────────────────────────")
         logger.info(f"│ ID: {event.event_id}")
         logger.info(f"│ User: {event.user_id}")
         logger.info(f"│ Name: {event.event_name}")
         logger.info("└───────────────────────────────────────────")
+        share_db.delete_shares_by_event_id(event_id, conn)
+        record_db.delete_records_by_event_id(event_id, conn)
+        event_db.delete_event(event_id, conn)
+        user_db.increment_user_event_count(event.user_id, -1, conn)
 
         chat.current_step = None
         chat.status = ChatStatus.COMPLETED.value
-        chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-        chat_db.set_chat_status(chat.chat_id, chat.status, conn)
         logger.info(f"Setting current_step={chat.current_step}")
         logger.info(f"Finishing chat: {chat.chat_id}")
+        chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+        chat_db.set_chat_status(chat.chat_id, chat.status, conn)
         return msg.events.delete.succeeded(event.event_name)
     elif text == ConfirmDeletionOptions.CANCEL:
+        logger.info("Cancelling deletion")
         chat.current_step = None
         chat.status = ChatStatus.COMPLETED.value
-        chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-        chat_db.set_chat_status(chat.chat_id, chat.status, conn)
-        logger.info("Cancelling deletion")
         logger.info(f"Setting current_step={chat.current_step}")
         logger.info(f"Finishing chat: {chat.chat_id}")
+        chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+        chat_db.set_chat_status(chat.chat_id, chat.status, conn)
         return msg.events.delete.cancelled()
     else:
         logger.info(f"Invalid delete confirmation entry: {text}")

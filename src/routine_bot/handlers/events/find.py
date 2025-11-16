@@ -16,7 +16,7 @@ from routine_bot.utils import format_logger_name, validate_event_name
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage | TextMessage:
+def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | FlexMessage:
     logger.info("Processing find event name entry")
     event_name = text
 
@@ -45,10 +45,10 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
 
     chat.current_step = None
     chat.status = ChatStatus.COMPLETED.value
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
     logger.info(f"Setting current_step={chat.current_step}")
     logger.info(f"Finishing chat: {chat.chat_id}")
+    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
     return msg.events.find.format_event_summary(event, recent_records)
 
 
@@ -68,7 +68,7 @@ def create_find_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessag
     return msg.events.find.enter_event_name()
 
 
-def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage | TextMessage:
+def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | FlexMessage:
     if chat.current_step == FindEventSteps.ENTER_NAME:
         return _process_event_name_entry(text, chat, conn)
     else:

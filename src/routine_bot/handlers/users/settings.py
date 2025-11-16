@@ -3,7 +3,8 @@ import uuid
 from datetime import datetime
 
 import psycopg
-from linebot.v3.messaging import Message, TemplateMessage
+from linebot.v3.messaging import TemplateMessage
+from linebot.v3.messaging.models.flex_message import FlexMessage
 from linebot.v3.webhooks import PostbackEvent
 
 import routine_bot.db.chats as chat_db
@@ -26,15 +27,15 @@ def _prepare_new_time_slot_selection(chat: ChatData, conn: psycopg.Connection) -
     chat.payload["chat_id"] = chat.chat_id
     chat.payload["current_slot"] = user.notification_slot.strftime("%H:%M")
     chat.current_step = UserSettingsSteps.SELECT_NEW_TIME_SLOT.value
+    logger.debug(f"Adding to payload: chat_id={chat.chat_id}")
+    logger.debug(f"Adding to payload: current_slot={chat.payload['current_slot']}")
+    logger.info(f"Setting current_step={chat.current_step}")
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info(f"Adding to payload: chat_id={chat.chat_id}")
-    logger.info(f"Adding to payload: current_slot={chat.payload['current_slot']}")
-    logger.info(f"Setting current_step={chat.current_step}")
     return msg.users.settings.select_new_time_slot(chat.payload)
 
 
-def _process_selected_option(text: str, chat: ChatData, conn: psycopg.Connection):
+def _process_selected_option(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
     logger.info("Processing user settings option input")
     if text == UserSettingsOptions.TIME_SLOT:
         return _prepare_new_time_slot_selection(chat, conn)
@@ -44,7 +45,9 @@ def _process_selected_option(text: str, chat: ChatData, conn: psycopg.Connection
 
 
 # this function is called by handle_postback in handlers/main.py
-def process_new_time_slot_selection(postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection):
+def process_new_time_slot_selection(
+    postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection
+) -> TemplateMessage | FlexMessage:
     logger.info("Processing new time slot selection")
     if postback.postback.params is None:
         raise AttributeError("Postback contains no data")
@@ -55,12 +58,13 @@ def process_new_time_slot_selection(postback: PostbackEvent, chat: ChatData, con
     else:
         time_slot = datetime.strptime(time_slot, "%H:%M").time()
         logger.info(f"New notification slot: {time_slot}")
-        chat.payload["new_slot"] = time_slot.strftime("%H:%M")
         user_db.set_user_time_slot(chat.user_id, time_slot, conn)
-        chat_db.set_chat_current_step(chat.chat_id, None, conn)
-        chat_db.set_chat_status(chat.chat_id, ChatStatus.COMPLETED.value, conn)
+        chat.payload["new_slot"] = time_slot.strftime("%H:%M")
+        chat.status = ChatStatus.COMPLETED.value
         logger.info(f"Setting current_step={chat.current_step}")
         logger.info(f"Finishing chat: {chat.chat_id}")
+        chat_db.set_chat_current_step(chat.chat_id, None, conn)
+        chat_db.set_chat_status(chat.chat_id, chat.status, conn)
         return msg.users.settings.succeeded(chat.payload)
 
 
@@ -80,14 +84,9 @@ def create_user_settings_chat(user_id: str, conn: psycopg.Connection) -> Templat
     return msg.users.settings.select_option()
 
 
-def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
+def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
     if chat.current_step == UserSettingsSteps.SELECT_OPTION:
-        logger.info("Processing user settings option input")
-        if text == UserSettingsOptions.TIME_SLOT:
-            return _prepare_new_time_slot_selection(chat, conn)
-        else:
-            logger.info(f"Invalid user settings option input: {text}")
-            return msg.users.settings.invalid_input_for_option(chat.payload)
+        return _process_selected_option(text, chat, conn)
     elif chat.current_step == UserSettingsSteps.SELECT_NEW_TIME_SLOT:
         logger.info("Text input is not expected at current step")
         return msg.users.settings.invalid_input_for_time_slot(chat.payload)

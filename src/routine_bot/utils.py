@@ -1,6 +1,5 @@
 import logging
 import re
-import unicodedata
 
 import requests
 from cachetools.func import ttl_cache

@@ -38,12 +38,12 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
 
     chat.payload["event_name"] = event_name
     chat.payload["chat_id"] = chat.chat_id
+    logger.debug(f"Adding to payload: event_name={event_name}")
+    logger.debug(f"Adding to payload: chat_id={chat.chat_id}")
+    logger.info(f"Setting current_step={chat.current_step}")
     chat.current_step = NewEventSteps.SELECT_START_DATE.value
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info(f"Adding to payload: event_name={event_name}")
-    logger.info(f"Adding to payload: chat_id={chat.chat_id}")
-    logger.info(f"Setting current_step={chat.current_step}")
     return msg.events.new.select_start_date(chat.payload)
 
 
@@ -60,20 +60,20 @@ def process_selected_start_date(postback: PostbackEvent, chat: ChatData, conn: p
         logger.debug("Start date exceeds today")
         return msg.events.new.invalid_start_date_selected_exceeds_today(chat.payload)
 
-    chat.payload["start_date"] = start_date.isoformat()  # datetime is not JSON serializable
+    chat.payload["start_date"] = start_date.isoformat()
     chat.current_step = NewEventSteps.ENTER_REMINDER_OPTION.value
+    logger.debug(f"Adding to payload: start_date={chat.payload['start_date']}")
+    logger.info(f"Setting current_step={chat.current_step}")
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info(f"Adding to payload: start_date={chat.payload['start_date']}")
-    logger.info(f"Setting current_step={chat.current_step}")
     return msg.events.new.enable_reminder(chat.payload)
 
 
 def _process_reminder_enabled(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
     logger.info("Reminder is enabled")
     chat.current_step = NewEventSteps.ENTER_EVENT_CYCLE.value
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
     logger.info(f"Setting current_step={chat.current_step}")
+    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
     return msg.events.new.select_event_cycle(chat.payload)
 
 
@@ -91,7 +91,6 @@ def _process_reminder_disabled(chat: ChatData, conn: psycopg.Connection) -> Flex
         share_count=0,
         is_active=True,
     )
-    event_db.add_event(event, conn)
     logger.info("┌── Creating New Event ─────────────────────")
     logger.info(f"│ ID: {event_id}")
     logger.info(f"│ User: {event.user_id}")
@@ -99,6 +98,7 @@ def _process_reminder_disabled(chat: ChatData, conn: psycopg.Connection) -> Flex
     logger.info(f"│ Reminder: {event.reminder_enabled}")
     logger.info(f"│ Last Done: {event.last_done_at.astimezone(UTC)}")
     logger.info("└───────────────────────────────────────────")
+    event_db.add_event(event, conn)
 
     record = RecordData(
         record_id=str(uuid.uuid4()),
@@ -112,10 +112,10 @@ def _process_reminder_disabled(chat: ChatData, conn: psycopg.Connection) -> Flex
 
     chat.current_step = None
     chat.status = ChatStatus.COMPLETED.value
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
     logger.info(f"Setting current_step={chat.current_step}")
     logger.info(f"Finishing chat: {chat.chat_id}")
+    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
     return msg.events.new.succeeded_no_reminder(chat.payload)
 
 
@@ -132,7 +132,7 @@ def _process_selected_reminder_option(
         return msg.events.new.invalid_entry_for_enable_reminder(chat.payload)
 
 
-def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage | TemplateMessage:
+def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     logger.info("Processing event cycle entry")
     if text.lower() == "example":
         logger.info("Showing event cycle example")
@@ -167,7 +167,6 @@ def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connecti
         share_count=0,
         is_active=True,
     )
-    event_db.add_event(event, conn)
     assert event.next_due_at is not None, "Next due date should be set at this step"
     logger.info("┌── Creating New Event ─────────────────────")
     logger.info(f"│ ID: {event_id}")
@@ -178,6 +177,7 @@ def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connecti
     logger.info(f"│ Last Done: {event.last_done_at.astimezone(UTC)}")
     logger.info(f"│ Next Due: {event.next_due_at.astimezone(UTC)}")
     logger.info("└───────────────────────────────────────────")
+    event_db.add_event(event, conn)
 
     update = RecordData(
         record_id=str(uuid.uuid4()),
@@ -193,14 +193,17 @@ def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connecti
     chat.payload["next_due_at"] = next_due_at.isoformat()
     chat.current_step = None
     chat.status = ChatStatus.COMPLETED.value
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
+    logger.debug(f"Adding to payload: event_cycle={chat.payload['event_cycle']}")
+    logger.debug(f"Adding to payload: next_due_at={chat.payload['next_due_at']}")
     logger.info(f"Setting current_step={chat.current_step}")
     logger.info(f"Finishing chat: {chat.chat_id}")
+    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
+    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
     return msg.events.new.succeeded_with_reminder(chat.payload)
 
 
-def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage | TextMessage:
+def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessage | FlexMessage:
     user = user_db.get_user(user_id, conn)
     if user is None:
         raise ValueError(f"User not found: {user_id}")
