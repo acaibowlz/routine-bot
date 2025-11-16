@@ -13,14 +13,14 @@ class ConfirmDeletionOptions(StrEnum):
 
 class ToggleReminderOptions(StrEnum):
     CONFIRM = "是，修改設定"
-    CANCEL = "否，保留目前設定"
+    CANCEL = "不用，維持現狀"
 
 
 class EditEventOptions(StrEnum):
-    NAME = auto()
-    REMINDER = auto()
-    EVENT_CYCLE = auto()
+    NAME = "名稱"
+    REMINDER = "提醒設定"
+    EVENT_CYCLE = "重複週期"
 
 
 class UserSettingsOptions(StrEnum):
-    TIME_SLOT = auto()
+    TIME_SLOT = "提醒時段"

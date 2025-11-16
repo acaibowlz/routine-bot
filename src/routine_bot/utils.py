@@ -42,7 +42,7 @@ def sanitize_msg(text: str) -> str:
     """
     if not text:
         return ""
-    text = unicodedata.normalize("NFKC", text)
+    # text = unicodedata.normalize("NFKC", text)
     text = text.strip()
     text = re.sub(r"[\t\r\n]+", " ", text)
     text = re.sub(r" {2,}", " ", text)

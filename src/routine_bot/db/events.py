@@ -144,7 +144,7 @@ def list_overdue_events_by_user(user_id: str, conn: psycopg.Connection) -> list[
         return [EventData(*row) for row in result]
 
 
-def set_event_name(event_id: str, event_name: bool, conn: psycopg.Connection) -> None:
+def set_event_name(event_id: str, event_name: str, conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -183,19 +183,6 @@ def set_event_cycle(event_id: str, event_cycle: str, conn: psycopg.Connection) -
     logger.debug(f"Updating event_cycle for event: {event_id}")
 
 
-def set_event_activeness(event_id: str, to: bool, conn: psycopg.Connection) -> None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE events
-            SET is_active = %s
-            WHERE event_id = %s
-            """,
-            (to, event_id),
-        )
-    logger.debug(f"Updating is_active for event: {event_id}")
-
-
 def set_event_last_done_at(event_id: str, last_done_at: datetime, conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -207,6 +194,32 @@ def set_event_last_done_at(event_id: str, last_done_at: datetime, conn: psycopg.
             (last_done_at, event_id),
         )
     logger.debug(f"Updating last_done_at for event: {event_id}")
+
+
+def set_event_next_due_at(event_id: str, next_due_at: datetime, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE events
+            SET next_due_at = %s
+            WHERE event_id = %s
+            """,
+            (next_due_at, event_id),
+        )
+    logger.debug(f"Updating next_due_at for event: {event_id}")
+
+
+def set_event_activeness(event_id: str, to: bool, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE events
+            SET is_active = %s
+            WHERE event_id = %s
+            """,
+            (to, event_id),
+        )
+    logger.debug(f"Updating is_active for event: {event_id}")
 
 
 def set_all_events_activeness_by_user(user_id: str, to: bool, conn: psycopg.Connection) -> None:

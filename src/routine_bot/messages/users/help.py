@@ -20,7 +20,7 @@ def format_help():
             f"{Command.ABORT.value} ➜ 取消目前進行中的操作",
             f"{Command.SETTINGS.value} ➜ 編輯設定",
             f"{Command.MENU.value} ➜ 顯示主選單",
-            f"{Command.HELP.value} ➜ 顯示這份說明（也就是現在這裡🍞）",
+            f"{Command.HELP.value} ➜ 顯示這份說明（現在這裡🍞）",
         ],
     )
 

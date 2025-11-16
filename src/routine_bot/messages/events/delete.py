@@ -23,14 +23,14 @@ def comfirm_event_deletion(event: EventData) -> TemplateMessage:
             f"\n🗓 上次是：{event.last_done_at.strftime('%Y-%m-%d')}\n\n🔕 提醒設定：關閉\n\n✨ 確定要刪除這個事項嗎？"
         )
     template = ButtonsTemplate(
-        title=f"🗑 刪除［{event.event_name}］",
+        title=f"🍞 刪除［{event.event_name}］",
         text=text,
         actions=[
             MessageAction(label="是", text=ConfirmDeletionOptions.DELETE.value),
             MessageAction(label="否", text=ConfirmDeletionOptions.CANCEL.value),
         ],
     )
-    msg = TemplateMessage(altText=f"🗑 確定要刪除［{event.event_name}］嗎？", template=template)
+    msg = TemplateMessage(altText=f"🍞 確定要刪除［{event.event_name}］嗎？", template=template)
     return msg
 
 
@@ -45,7 +45,7 @@ def cancelled() -> TextMessage:
 def invalid_delete_confirmation(event: EventData) -> TemplateMessage:
     text = "\n⚠️ 嗯～我不太確定你的意思\n\n✨ 請幫我從下方按鈕確認是否刪除"
     template = ButtonsTemplate(
-        title=f"🗑 刪除［{event.event_name}］",
+        title=f"🍞 刪除［{event.event_name}］",
         text=text,
         actions=[
             MessageAction(label="是", text="刪除事項"),

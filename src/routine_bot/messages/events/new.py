@@ -7,11 +7,11 @@ from linebot.v3.messaging import (
     TextMessage,
 )
 
+from routine_bot.enums.options import NewEventReminderOptions
 from routine_bot.messages.utils import flex_bubble_template
-from src.routine_bot.enums.options import NewEventReminderOptions
 
 
-def prompt_for_event_name() -> TextMessage:
+def enter_event_name() -> TextMessage:
     return TextMessage(text="請輸入要記的事項名稱（2～10 個字）🍞")
 
 
@@ -55,9 +55,9 @@ def select_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
 
 def succeeded_no_reminder(chat_payload: dict[str, str]) -> FlexMessage:
     bubble = flex_bubble_template(
-        title="🍞 新事項已準備就緒",
+        title="✅ 新事項已準備就緒",
         lines=[
-            f"🆕 名稱：{chat_payload['event_name']}",
+            f"🍞 名稱：{chat_payload['event_name']}",
             f"🗓 開始日期：{chat_payload['start_date'][:10]}",
             "🔕 提醒狀態：關閉",
         ],
@@ -67,9 +67,9 @@ def succeeded_no_reminder(chat_payload: dict[str, str]) -> FlexMessage:
 
 def succeeded_with_reminder(chat_payload: dict[str, str]) -> FlexMessage:
     bubble = flex_bubble_template(
-        title="🍞 新事項已準備就緒",
+        title="✅ 新事項已準備就緒",
         lines=[
-            f"🆕 名稱：{chat_payload['event_name']}",
+            f"🍞 名稱：{chat_payload['event_name']}",
             f"🗓 開始日期：{chat_payload['start_date'][:10]}",
             f"🔁 重複週期：{chat_payload['event_cycle']}",
             f"🔔 下次提醒：{chat_payload['next_due_at'][:10]}",
