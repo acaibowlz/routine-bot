@@ -41,7 +41,7 @@ def format_all_events_summary(events: list[EventData]) -> FlexMessage:
                     )
                 )
             else:
-                contents.append(flex_text_normal_line("🔕 提醒狀態：關閉"))
+                contents.append(flex_text_normal_line("🔕 提醒設定：關閉"))
             if i != len(events) - 1:
                 contents.append(FlexSeparator())
     else:

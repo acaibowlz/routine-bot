@@ -144,6 +144,45 @@ def list_overdue_events_by_user(user_id: str, conn: psycopg.Connection) -> list[
         return [EventData(*row) for row in result]
 
 
+def set_event_name(event_id: str, event_name: bool, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE events
+            SET event_name = %s
+            WHERE event_id = %s
+            """,
+            (event_name, event_id),
+        )
+    logger.debug(f"Updating event_name for event: {event_id}")
+
+
+def set_event_reminder_flag(event_id: str, reminder_enabled: bool, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE events
+            SET reminder_enabled = %s
+            WHERE event_id = %s
+            """,
+            (reminder_enabled, event_id),
+        )
+    logger.debug(f"Updating reminder_enabled for event: {event_id}")
+
+
+def set_event_cycle(event_id: str, event_cycle: str, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE events
+            SET event_cycle = %s
+            WHERE event_id = %s
+            """,
+            (event_cycle, event_id),
+        )
+    logger.debug(f"Updating event_cycle for event: {event_id}")
+
+
 def set_event_activeness(event_id: str, to: bool, conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(

@@ -2,24 +2,32 @@ from enum import StrEnum, auto
 
 
 class NewEventSteps(StrEnum):
-    INPUT_NAME = auto()
+    ENTER_NAME = auto()
     SELECT_START_DATE = auto()
-    ENABLE_REMINDER = auto()
-    SELECT_EVENT_CYCLE = auto()
+    ENTER_REMINDER_OPTION = auto()
+    ENTER_EVENT_CYCLE = auto()
 
 
 class FindEventSteps(StrEnum):
-    INPUT_NAME = auto()
+    ENTER_NAME = auto()
 
 
 class DeleteEventSteps(StrEnum):
-    INPUT_NAME = auto()
+    ENTER_NAME = auto()
     CONFIRM_DELETION = auto()
 
 
 class DoneEventSteps(StrEnum):
-    INPUT_NAME = auto()
+    ENTER_NAME = auto()
     SELECT_DONE_DATE = auto()
+
+
+class EditEventSteps(StrEnum):
+    ENTER_NAME = auto()
+    SELECT_OPTION = auto()
+    ENTER_NEW_NAME = auto()
+    TOGGLE_REMINDER = auto()
+    ENTER_NEW_EVENT_CYCLE = auto()
 
 
 class UserSettingsSteps(StrEnum):

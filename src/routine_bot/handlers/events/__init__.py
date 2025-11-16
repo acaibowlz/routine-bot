@@ -2,10 +2,12 @@ from .delete import create_delete_event_chat as create_delete_event_chat
 from .delete import handle_delete_event_chat as handle_delete_event_chat
 from .done import create_done_event_chat as create_done_event_chat
 from .done import handle_done_event_chat as handle_done_event_chat
-from .done import process_done_date_selection as process_done_date_selection
+from .done import process_selected_done_date as process_selected_done_date
+from .edit import create_edit_event_chat as create_edit_event_chat
+from .edit import handle_edit_event_chat as handle_edit_event_chat
 from .find import create_find_event_chat as create_find_event_chat
 from .find import handle_find_event_chat as handle_find_event_chat
 from .new import create_new_event_chat as create_new_event_chat
 from .new import handle_new_event_chat as handle_new_event_chat
-from .new import process_start_date_selection as process_start_date_selection
+from .new import process_selected_start_date as process_selected_start_date
 from .view_all import handle_view_all_chat as handle_view_all_chat

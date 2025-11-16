@@ -7,6 +7,7 @@ class Command(StrEnum):
     DELETE = "/delete"
     VIEW_ALL = "/viewall"
     DONE = "/done"
+    EDIT = "/edit"
     ABORT = "/abort"
     SETTINGS = "/settings"
     MENU = "/menu"

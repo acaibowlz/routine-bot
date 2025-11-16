@@ -18,7 +18,7 @@ class FindEventSteps(StrEnum):
     INPUT_NAME = auto()
 
 
-def prompt_for_event_name() -> TextMessage:
+def enter_event_name() -> TextMessage:
     return TextMessage(text="請輸入要查詢的事項名稱 🍞")
 
 
@@ -41,7 +41,7 @@ def format_event_summary(event: EventData, recent_update_times: list[datetime]) 
             flex_text_normal_line(f"🔔 下次提醒：{event.next_due_at.astimezone(tz=TZ_TAIPEI).strftime('%Y-%m-%d')}")
         )
     else:
-        contents.append(flex_text_normal_line("🔕 提醒狀態：關閉"))
+        contents.append(flex_text_normal_line("🔕 提醒設定：關閉"))
 
     contents.append(FlexSeparator())
     contents.append(flex_text_bold_line("🗓 最近紀錄"))

@@ -28,15 +28,17 @@ from routine_bot.enums.steps import DoneEventSteps, NewEventSteps, UserSettingsS
 from routine_bot.handlers.events import (
     create_delete_event_chat,
     create_done_event_chat,
+    create_edit_event_chat,
     create_find_event_chat,
     create_new_event_chat,
     handle_delete_event_chat,
     handle_done_event_chat,
+    handle_edit_event_chat,
     handle_find_event_chat,
     handle_new_event_chat,
     handle_view_all_chat,
-    process_done_date_selection,
-    process_start_date_selection,
+    process_selected_done_date,
+    process_selected_start_date,
 )
 from routine_bot.handlers.users import (
     create_user_settings_chat,
@@ -63,6 +65,8 @@ def _handle_command(cmd: str, user_id: str, conn: psycopg.Connection) -> Message
         return handle_view_all_chat(user_id, conn)
     elif cmd == Command.DONE:
         return create_done_event_chat(user_id, conn)
+    elif cmd == Command.EDIT:
+        return create_edit_event_chat(user_id, conn)
     elif cmd == Command.SETTINGS:
         return create_user_settings_chat(user_id, conn)
     elif cmd == Command.MENU:
@@ -82,6 +86,8 @@ def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) ->
         return handle_delete_event_chat(text, chat, conn)
     elif chat.chat_type == ChatType.DONE_EVENT:
         return handle_done_event_chat(text, chat, conn)
+    elif chat.chat_type == ChatType.EDIT_EVENT:
+        return handle_edit_event_chat(text, chat, conn)
     elif chat.chat_type == ChatType.USER_SETTINGS:
         return handle_user_settings_chat(text, chat, conn)
     else:
@@ -175,11 +181,11 @@ def handle_postback(postback_event: PostbackEvent) -> None:
             raise ValueError(f"Chat not found: {chat_id}")
         # only proceed if status and current step matches
         if chat.chat_type == ChatType.NEW_EVENT and chat.current_step == NewEventSteps.SELECT_START_DATE:
-            reply_msg = process_start_date_selection(postback_event, chat, conn)
+            reply_msg = process_selected_start_date(postback_event, chat, conn)
         elif chat.chat_type == ChatType.USER_SETTINGS and chat.current_step == UserSettingsSteps.SELECT_NEW_TIME_SLOT:
             reply_msg = process_new_time_slot_selection(postback_event, chat, conn)
         elif chat.chat_type == ChatType.DONE_EVENT and chat.current_step == DoneEventSteps.SELECT_DONE_DATE:
-            reply_msg = process_done_date_selection(postback_event, chat, conn)
+            reply_msg = process_selected_done_date(postback_event, chat, conn)
         else:
             return None
 

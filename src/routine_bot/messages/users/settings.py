@@ -15,10 +15,7 @@ def select_option() -> TemplateMessage:
             MessageAction(label="更改提醒時段", text=f"{UserSettingsOptions.TIME_SLOT.value}"),
         ],
     )
-    msg = TemplateMessage(
-        altText="⚙️ 使用者設定 ➡️ 請選擇想調整的項目",
-        template=template,
-    )
+    msg = TemplateMessage(altText="⚙️ 使用者設定 ➡️ 請選擇想調整的項目", template=template)
     return msg
 
 
@@ -38,8 +35,7 @@ def select_new_time_slot(chat_payload: dict[str, str]) -> TemplateMessage:
         ],
     )
     msg = TemplateMessage(
-        altText=f"⚙️ 更改提醒時段 ➡️ 目前時間：{chat_payload['current_slot']}，請選擇新時段",
-        template=template,
+        altText=f"⚙️ 更改提醒時段 ➡️ 目前時間：{chat_payload['current_slot']}，請選擇新時段", template=template
     )
     return msg
 

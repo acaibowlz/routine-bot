@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import psycopg
 from dateutil.relativedelta import relativedelta
-from linebot.v3.messaging import FlexMessage, Message, TemplateMessage, TextMessage
+from linebot.v3.messaging import FlexMessage, TemplateMessage, TextMessage
 from linebot.v3.webhooks import PostbackEvent
 
 from routine_bot import messages as msg
@@ -14,6 +14,7 @@ from routine_bot.db import events as event_db
 from routine_bot.db import records as record_db
 from routine_bot.db import users as user_db
 from routine_bot.enums.chat import ChatStatus, ChatType
+from routine_bot.enums.options import NewEventReminderOptions
 from routine_bot.enums.steps import NewEventSteps
 from routine_bot.enums.units import CycleUnit
 from routine_bot.models import ChatData, EventData, RecordData
@@ -22,18 +23,17 @@ from routine_bot.utils import format_logger_name, parse_event_cycle, validate_ev
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | TemplateMessage:
-    logger.info("Processing new event name input")
+def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | TemplateMessage:
+    logger.info("Processing new event name entry")
     event_name = text
 
     # validate event name
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name input: {event_name}")
-        logger.debug(f"Error msg={error_msg}")
+        logger.info(f"Invalid event name entry: {event_name}, error msg={error_msg}")
         return TextMessage(text=error_msg)
     if event_db.get_event_id(chat.user_id, event_name, conn) is not None:
-        logger.info(f"Duplicated event name input: {event_name}")
+        logger.info(f"Duplicated event name entry: {event_name}")
         return msg.info.event_name_duplicated(event_name)
 
     chat.payload["event_name"] = event_name
@@ -41,7 +41,6 @@ def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connectio
     chat.current_step = NewEventSteps.SELECT_START_DATE.value
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-
     logger.info(f"Adding to payload: event_name={event_name}")
     logger.info(f"Adding to payload: chat_id={chat.chat_id}")
     logger.info(f"Setting current_step={chat.current_step}")
@@ -49,20 +48,20 @@ def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connectio
 
 
 # this function is called by handle_postback in handlers/main.py
-def process_start_date_selection(postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
-    logger.info("Processing start date selection")
+def process_selected_start_date(postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
+    logger.info("Processing selected start date")
     if postback.postback.params is None:
         raise AttributeError("Postback contains no data")
 
     start_date = datetime.strptime(postback.postback.params["date"], "%Y-%m-%d")
     start_date = start_date.replace(tzinfo=TZ_TAIPEI)
-    logger.debug(f"Start date received: {start_date}")
+    logger.debug(f"Selected start date: {start_date}")
     if start_date > datetime.today().astimezone(tz=TZ_TAIPEI):
         logger.debug("Start date exceeds today")
-        return msg.events.new.invalid_selection_for_start_date_exceeds_today(chat.payload)
+        return msg.events.new.invalid_start_date_selected_exceeds_today(chat.payload)
 
     chat.payload["start_date"] = start_date.isoformat()  # datetime is not JSON serializable
-    chat.current_step = NewEventSteps.ENABLE_REMINDER.value
+    chat.current_step = NewEventSteps.ENTER_REMINDER_OPTION.value
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
     logger.info(f"Adding to payload: start_date={chat.payload['start_date']}")
@@ -70,16 +69,16 @@ def process_start_date_selection(postback: PostbackEvent, chat: ChatData, conn: 
     return msg.events.new.enable_reminder(chat.payload)
 
 
-def _process_enable_reminder(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
-    logger.info("Processing enable reminder")
-    chat.current_step = NewEventSteps.SELECT_EVENT_CYCLE.value
+def _process_reminder_enabled(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
+    logger.info("Reminder is enabled")
+    chat.current_step = NewEventSteps.ENTER_EVENT_CYCLE.value
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
     logger.info(f"Setting current_step={chat.current_step}")
     return msg.events.new.select_event_cycle(chat.payload)
 
 
-def _process_disable_reminder(chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
-    logger.info("Processing disable reminder")
+def _process_reminder_disabled(chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
+    logger.info("Reminder is disabled")
     event_id = str(uuid.uuid4())
     event = EventData(
         event_id=event_id,
@@ -117,20 +116,34 @@ def _process_disable_reminder(chat: ChatData, conn: psycopg.Connection) -> FlexM
     chat_db.set_chat_status(chat.chat_id, chat.status, conn)
     logger.info(f"Setting current_step={chat.current_step}")
     logger.info(f"Finishing chat: {chat.chat_id}")
-    return msg.events.new.event_created_no_reminder(chat.payload)
+    return msg.events.new.succeeded_no_reminder(chat.payload)
 
 
-def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage | TemplateMessage:
-    logger.info("Processing event cycle input")
+def _process_selected_reminder_option(
+    text: str, chat: ChatData, conn: psycopg.Connection
+) -> TemplateMessage | FlexMessage:
+    logger.info("Processing reminder option entry")
+    if text == NewEventReminderOptions.ENABLE:
+        return _process_reminder_enabled(chat, conn)
+    elif text == NewEventReminderOptions.DISABLE:
+        return _process_reminder_disabled(chat, conn)
+    else:
+        logger.info(f"Invalid enable reminder input: {text}")
+        return msg.events.new.invalid_entry_for_enable_reminder(chat.payload)
+
+
+def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage | TemplateMessage:
+    logger.info("Processing event cycle entry")
     if text.lower() == "example":
         logger.info("Showing event cycle example")
-        return msg.events.new.event_cycle_example()
+        return msg.info.event_cycle_example()
+
     # remove plural form
     text = text.rstrip("s")
     increment, unit = parse_event_cycle(text)
     if increment is None or unit is None:
-        logger.info(f"Invalid event cycle input: {text}")
-        return msg.events.new.invalid_input_for_event_cycle(chat.payload)
+        logger.info(f"Invalid event cycle entry: {text}")
+        return msg.events.new.invalid_entry_for_event_cycle(chat.payload)
 
     start_date = datetime.fromisoformat(chat.payload["start_date"])
     offset = relativedelta()
@@ -184,7 +197,7 @@ def _process_event_cycle_input(text: str, chat: ChatData, conn: psycopg.Connecti
     chat_db.set_chat_status(chat.chat_id, chat.status, conn)
     logger.info(f"Setting current_step={chat.current_step}")
     logger.info(f"Finishing chat: {chat.chat_id}")
-    return msg.events.new.event_created_with_reminder(chat.payload)
+    return msg.events.new.succeeded_with_reminder(chat.payload)
 
 
 def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage | TextMessage:
@@ -201,29 +214,25 @@ def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage
         chat_id=chat_id,
         user_id=user_id,
         chat_type=ChatType.NEW_EVENT.value,
-        current_step=NewEventSteps.INPUT_NAME.value,
+        current_step=NewEventSteps.ENTER_NAME.value,
         payload={},
         status=ChatStatus.ONGOING.value,
     )
     chat_db.add_chat(chat, conn)
-    return msg.events.new.prompt_for_event_name()
+    return msg.events.new.enter_event_name()
 
 
-def handle_new_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
-    if chat.current_step == NewEventSteps.INPUT_NAME:
-        return _process_event_name_input(text, chat, conn)
+def handle_new_event_chat(
+    text: str, chat: ChatData, conn: psycopg.Connection
+) -> TextMessage | TemplateMessage | FlexMessage:
+    if chat.current_step == NewEventSteps.ENTER_NAME:
+        return _process_event_name_entry(text, chat, conn)
     elif chat.current_step == NewEventSteps.SELECT_START_DATE:
         logger.info("Text input is not expected at current step")
-        return msg.events.new.invalid_input_for_start_date(chat.payload)
-    elif chat.current_step == NewEventSteps.ENABLE_REMINDER:
-        if text == "設定提醒":
-            return _process_enable_reminder(chat, conn)
-        elif text == "不設定提醒":
-            return _process_disable_reminder(chat, conn)
-        else:
-            logger.info(f"Invalid enable reminder input: {text}")
-            return msg.events.new.invalid_input_for_enable_reminder(chat.payload)
-    elif chat.current_step == NewEventSteps.SELECT_EVENT_CYCLE:
-        return _process_event_cycle_input(text, chat, conn)
+        return msg.events.new.invalid_entry_for_start_date(chat.payload)
+    elif chat.current_step == NewEventSteps.ENTER_REMINDER_OPTION:
+        return _process_selected_reminder_option(text, chat, conn)
+    elif chat.current_step == NewEventSteps.ENTER_EVENT_CYCLE:
+        return _process_event_cycle_entry(text, chat, conn)
     else:
         raise AssertionError(f"Unknown step in handle_new_event_chat: {chat.current_step}")

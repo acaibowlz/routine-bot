@@ -3,7 +3,7 @@ import uuid
 from datetime import UTC, datetime
 
 import psycopg
-from linebot.v3.messaging import TextMessage
+from linebot.v3.messaging import TemplateMessage, TextMessage
 from linebot.v3.webhooks import PostbackEvent
 
 import routine_bot.db.chats as chat_db
@@ -19,14 +19,13 @@ from routine_bot.utils import format_logger_name, validate_event_name
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connection):
-    logger.info("Processing done event at name input")
+def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection):
+    logger.info("Processing done event name entry")
     event_name = text
 
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name input: {event_name}")
-        logger.debug(f"Error msg={error_msg}")
+        logger.info(f"Invalid event name entry: {event_name}, error msg={error_msg}")
         return TextMessage(text=error_msg)
     event_id = event_db.get_event_id(chat.user_id, event_name, conn)
     if event_id is None:
@@ -47,17 +46,17 @@ def _process_event_name_input(text: str, chat: ChatData, conn: psycopg.Connectio
 
 
 # this function is called by handle_postback in handlers/main.py
-def process_done_date_selection(postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection):
-    logger.info("Processing done date selection")
+def process_selected_done_date(postback: PostbackEvent, chat: ChatData, conn: psycopg.Connection):
+    logger.info("Processing selected done date")
     if postback.postback.params is None:
         raise AttributeError("Postback contains no data")
 
     done_at = datetime.strptime(postback.postback.params["date"], "%Y-%m-%d")
     done_at = done_at.replace(tzinfo=TZ_TAIPEI)
-    logger.debug(f"Date received: {done_at}")
+    logger.debug(f"Selected done date: {done_at}")
     if done_at > datetime.today().astimezone(tz=TZ_TAIPEI):
         logger.debug("Date exceeds today")
-        return msg.events.done.invalid_selection_for_done_at_exceeds_today(chat.payload)
+        return msg.events.done.invalid_done_date_selected_exceeds_today(chat.payload)
 
     event_id = chat.payload["event_id"]
     event = event_db.get_event(event_id, conn)
@@ -99,17 +98,17 @@ def create_done_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessag
         chat_id=chat_id,
         user_id=user_id,
         chat_type=ChatType.DONE_EVENT.value,
-        current_step=DoneEventSteps.INPUT_NAME.value,
+        current_step=DoneEventSteps.ENTER_NAME.value,
         payload={},
         status=ChatStatus.ONGOING.value,
     )
     chat_db.add_chat(chat, conn)
-    return msg.events.done.prompt_for_event_name()
+    return msg.events.done.enter_event_name()
 
 
-def handle_done_event_chat(text: str, chat: ChatData, conn: psycopg.Connection):
-    if chat.current_step == DoneEventSteps.INPUT_NAME:
-        return _process_event_name_input(text, chat, conn)
+def handle_done_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | TemplateMessage:
+    if chat.current_step == DoneEventSteps.ENTER_NAME:
+        return _process_event_name_entry(text, chat, conn)
     elif chat.current_step == DoneEventSteps.SELECT_DONE_DATE:
         logger.info("Text input is not expected at current step")
         return msg.events.done.invalid_input_for_done_at(chat.payload)

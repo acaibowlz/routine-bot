@@ -20,21 +20,27 @@ logger = logging.getLogger(format_logger_name(__name__))
 
 def _prepare_new_time_slot_selection(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
     logger.info("Option selected: time slot")
-    option = UserSettingsOptions.TIME_SLOT.value
     user = user_db.get_user(chat.user_id, conn)
     if user is None:
         raise ValueError(f"User not found: {chat.user_id}")
-    chat.payload["option"] = option
     chat.payload["chat_id"] = chat.chat_id
     chat.payload["current_slot"] = user.notification_slot.strftime("%H:%M")
     chat.current_step = UserSettingsSteps.SELECT_NEW_TIME_SLOT.value
     chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
     chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    logger.info(f"Adding to payload: option={option}")
     logger.info(f"Adding to payload: chat_id={chat.chat_id}")
     logger.info(f"Adding to payload: current_slot={chat.payload['current_slot']}")
     logger.info(f"Setting current_step={chat.current_step}")
     return msg.users.settings.select_new_time_slot(chat.payload)
+
+
+def _process_selected_option(text: str, chat: ChatData, conn: psycopg.Connection):
+    logger.info("Processing user settings option input")
+    if text == UserSettingsOptions.TIME_SLOT:
+        return _prepare_new_time_slot_selection(chat, conn)
+    else:
+        logger.info(f"Invalid user settings option input: {text}")
+        return msg.users.settings.invalid_input_for_option(chat.payload)
 
 
 # this function is called by handle_postback in handlers/main.py
