@@ -101,11 +101,11 @@ def _get_reply_message(text: str, user_id: str) -> Message:
 
         if ongoing_chat_id is None:
             if text == Command.ABORT:
-                return msg.info.no_ongoing_chat()
+                return msg.error.no_ongoing_chat()
             if not text.startswith("/"):
                 return msg.users.greeting.random()
             if text not in SUPPORTED_COMMANDS:
-                return msg.info.unrecognized_command()
+                return msg.error.unrecognized_command()
             return _handle_command(text, user_id, conn)
 
         chat = chat_db.get_chat(ongoing_chat_id, conn)

@@ -1,12 +1,14 @@
-from linebot.v3.messaging import ButtonsTemplate, MessageAction, TemplateMessage, TextMessage
+from linebot.v3.messaging import ButtonsTemplate, FlexMessage, MessageAction, TemplateMessage
 
 from routine_bot.constants import TZ_TAIPEI
 from routine_bot.enums.options import ConfirmDeletionOptions
+from routine_bot.messages.utils import flex_bubble_template
 from routine_bot.models import EventData
 
 
-def enter_event_name() -> TextMessage:
-    return TextMessage(text="請輸入要刪除的事項名稱 🍞")
+def enter_event_name() -> FlexMessage:
+    bubble = flex_bubble_template(title="🍞 刪除事項", lines=["📝 請輸入要刪除的事項名稱"])
+    return FlexMessage(altText="🍞 請輸入要刪除的事項名稱", contents=bubble)
 
 
 def comfirm_event_deletion(event: EventData) -> TemplateMessage:
@@ -34,12 +36,14 @@ def comfirm_event_deletion(event: EventData) -> TemplateMessage:
     return msg
 
 
-def succeeded(event_name: str) -> TextMessage:
-    return TextMessage(text=f"✅［{event_name}］已成功刪除！")
+def succeeded(event_name: str) -> FlexMessage:
+    bubble = flex_bubble_template(title=f"🍞 刪除［{event_name}］", lines=["✅ 已成功刪除！"])
+    return FlexMessage(altText=f"✅［{event_name}］已成功刪除！", contents=bubble)
 
 
-def cancelled() -> TextMessage:
-    return TextMessage(text="🚫 已取消刪除")
+def cancelled(event_name: str) -> FlexMessage:
+    bubble = flex_bubble_template(title=f"🍞 刪除［{event_name}］", lines=["🚫 已取消刪除"])
+    return FlexMessage(altText="🚫 已取消刪除", contents=bubble)
 
 
 def invalid_delete_confirmation(event: EventData) -> TemplateMessage:

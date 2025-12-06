@@ -4,7 +4,7 @@ from datetime import UTC
 
 import psycopg
 from dateutil.relativedelta import relativedelta
-from linebot.v3.messaging import TemplateMessage, TextMessage
+from linebot.v3.messaging import TemplateMessage
 from linebot.v3.messaging.models.flex_message import FlexMessage
 
 from routine_bot import messages as msg
@@ -20,7 +20,7 @@ from routine_bot.utils import format_logger_name, parse_event_cycle, validate_ev
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | TemplateMessage:
+def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     logger.info("Processing edit event name input")
     event_name = text
 
@@ -29,11 +29,11 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
     if error_msg is not None:
         logger.info(f"Invalid event name input: {event_name}")
         logger.debug(f"Error msg={error_msg}")
-        return TextMessage(text=error_msg)
+        return msg.error.error([error_msg])
     event_id = event_db.get_event_id(chat.user_id, event_name, conn)
     if event_id is None:
         logger.info(f"Event not found: {event_name}")
-        return msg.info.event_name_not_found(event_name)
+        return msg.error.event_name_not_found(event_name)
 
     event = event_db.get_event(event_id, conn)
     assert event is not None, "Event is not suppose to be missing"
@@ -99,10 +99,10 @@ def _process_new_event_name_entry(text: str, chat: ChatData, conn: psycopg.Conne
     error_msg = validate_event_name(new_event_name)
     if error_msg is not None:
         logger.info(f"Invalid event name entry: {new_event_name}, error msg={error_msg}")
-        return TextMessage(text=error_msg)
+        return msg.error.error([error_msg])
     if event_db.get_event_id(chat.user_id, new_event_name, conn) is not None:
         logger.info(f"Duplicated event name entry: {new_event_name}")
-        return msg.info.event_name_duplicated(new_event_name)
+        return msg.error.event_name_duplicated(new_event_name)
 
     event_id = chat.payload["event_id"]
     logger.info("┌── Editing Event ──────────────────────────")
@@ -230,7 +230,7 @@ def _process_new_event_cycle_entry(
     return msg.events.edit.edit_event_cycle_succeeded(chat.payload)
 
 
-def create_edit_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessage:
+def create_edit_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:
     chat_id = str(uuid.uuid4())
     logger.info("Creating new chat, chat type: edit event")
     logger.info(f"Chat ID: {chat_id}")
@@ -246,9 +246,7 @@ def create_edit_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessag
     return msg.events.edit.enter_event_name()
 
 
-def handle_edit_event_chat(
-    text: str, chat: ChatData, conn: psycopg.Connection
-) -> TextMessage | TemplateMessage | FlexMessage:
+def handle_edit_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     if chat.current_step == EditEventSteps.ENTER_NAME:
         return _process_event_name_entry(text, chat, conn)
     elif chat.current_step == EditEventSteps.SELECT_OPTION:

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import psycopg
 from dateutil.relativedelta import relativedelta
-from linebot.v3.messaging import FlexMessage, TemplateMessage, TextMessage
+from linebot.v3.messaging import FlexMessage, TemplateMessage
 from linebot.v3.webhooks import PostbackEvent
 
 from routine_bot import messages as msg
@@ -23,7 +23,7 @@ from routine_bot.utils import format_logger_name, parse_event_cycle, validate_ev
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | TemplateMessage:
+def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     logger.info("Processing new event name entry")
     event_name = text
 
@@ -31,10 +31,10 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
         logger.info(f"Invalid event name entry: {event_name}, error msg={error_msg}")
-        return TextMessage(text=error_msg)
+        return msg.error.error([error_msg])
     if event_db.get_event_id(chat.user_id, event_name, conn) is not None:
         logger.info(f"Duplicated event name entry: {event_name}")
-        return msg.info.event_name_duplicated(event_name)
+        return msg.error.event_name_duplicated(event_name)
 
     chat.payload["event_name"] = event_name
     chat.payload["chat_id"] = chat.chat_id
@@ -203,7 +203,7 @@ def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connecti
     return msg.events.new.succeeded_with_reminder(chat.payload)
 
 
-def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessage | FlexMessage:
+def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:
     user = user_db.get_user(user_id, conn)
     if user is None:
         raise ValueError(f"User not found: {user_id}")
@@ -225,9 +225,7 @@ def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessage
     return msg.events.new.enter_event_name()
 
 
-def handle_new_event_chat(
-    text: str, chat: ChatData, conn: psycopg.Connection
-) -> TextMessage | TemplateMessage | FlexMessage:
+def handle_new_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     if chat.current_step == NewEventSteps.ENTER_NAME:
         return _process_event_name_entry(text, chat, conn)
     elif chat.current_step == NewEventSteps.SELECT_START_DATE:

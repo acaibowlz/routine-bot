@@ -2,7 +2,7 @@ import logging
 import uuid
 
 import psycopg
-from linebot.v3.messaging import FlexMessage, TextMessage
+from linebot.v3.messaging import FlexMessage
 
 import routine_bot.db.chats as chat_db
 import routine_bot.db.events as event_db
@@ -16,18 +16,18 @@ from routine_bot.utils import format_logger_name, validate_event_name
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | FlexMessage:
+def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
     logger.info("Processing find event name entry")
     event_name = text
 
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
         logger.info(f"Invalid event name entry: {event_name}, error msg={error_msg}")
-        return TextMessage(text=error_msg)
+        return msg.error.error([error_msg])
     event_id = event_db.get_event_id(chat.user_id, event_name, conn)
     if event_id is None:
         logger.info(f"Event not found: {event_name}")
-        return msg.info.event_name_not_found(event_name)
+        return msg.error.event_name_not_found(event_name)
 
     event = event_db.get_event(event_id, conn)
     assert event is not None, "Event is not suppose to be missing"
@@ -52,7 +52,7 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
     return msg.events.find.format_event_summary(event, recent_records)
 
 
-def create_find_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessage:
+def create_find_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:
     chat_id = str(uuid.uuid4())
     logger.info("Creating new chat, chat type: find event")
     logger.info(f"Chat ID: {chat_id}")
@@ -68,7 +68,7 @@ def create_find_event_chat(user_id: str, conn: psycopg.Connection) -> TextMessag
     return msg.events.find.enter_event_name()
 
 
-def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TextMessage | FlexMessage:
+def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
     if chat.current_step == FindEventSteps.ENTER_NAME:
         return _process_event_name_entry(text, chat, conn)
     else:

@@ -1,11 +1,12 @@
-from linebot.v3.messaging import ButtonsTemplate, FlexMessage, MessageAction, TemplateMessage, TextMessage
+from linebot.v3.messaging import ButtonsTemplate, FlexMessage, MessageAction, TemplateMessage
 
 from routine_bot.enums.options import EditEventOptions, ToggleReminderOptions
 from routine_bot.messages.utils import flex_bubble_template
 
 
-def enter_event_name() -> TextMessage:
-    return TextMessage(text="請輸入欲編輯的事項名稱 🍞")
+def enter_event_name() -> FlexMessage:
+    bubble = flex_bubble_template(title="🍞 編輯事項", lines=["📝 請輸入欲編輯的事項名稱"])
+    return FlexMessage(altText="🍞 請輸入欲編輯的事項名稱", contents=bubble)
 
 
 def select_option(chat_payload: dict[str, str]) -> TemplateMessage:
@@ -32,7 +33,7 @@ def enter_new_event_name(chat_payload: dict[str, str]) -> FlexMessage:
     return msg
 
 
-def toggle_reminder(chat_payload: dict[str, str]):
+def toggle_reminder(chat_payload: dict[str, str]) -> TemplateMessage:
     if chat_payload["reminder_enabled"] == "True":
         text = "\n🔔 目前的提醒是開啟的喔～\n\n✨ 想要先關閉一下嗎？"
     else:
@@ -115,7 +116,7 @@ def toggle_reminder_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
         return msg
 
 
-def proceed_to_set_event_cycle(chat_payload: dict[str, str]):
+def proceed_to_set_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title="🍞 請接著設定重複週期",
         text=f"\n🔁 尚未設定［{chat_payload['event_name']}］的重複週期\n\n✨ 請由下方選擇重複週期",
@@ -144,7 +145,7 @@ def edit_event_cycle_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     return msg
 
 
-def invalid_edit_option_entry(chat_payload: dict[str, str]):
+def invalid_edit_option_entry(chat_payload: dict[str, str]) -> TemplateMessage:
     actions = [
         MessageAction(label="編輯名稱", text=f"{EditEventOptions.NAME.value}"),
         MessageAction(label="編輯提醒設定", text=f"{EditEventOptions.REMINDER.value}"),
@@ -177,7 +178,7 @@ def event_cycle_requires_reminder_enabled(chat_payload: dict[str, str]) -> Templ
     return msg
 
 
-def invalid_toggle_reminder_entry(chat_payload: dict[str, str]):
+def invalid_toggle_reminder_entry(chat_payload: dict[str, str]) -> TemplateMessage:
     if chat_payload["reminder_enabled"] == "True":
         text = "\n⚠️ 嗯～我不太確定你的意思\n\n🔔 目前的提醒是開啟的喔～\n\n✨ 想要先關閉一下嗎？"
     else:

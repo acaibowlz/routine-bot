@@ -4,15 +4,15 @@ from linebot.v3.messaging import (
     FlexMessage,
     MessageAction,
     TemplateMessage,
-    TextMessage,
 )
 
 from routine_bot.enums.options import NewEventReminderOptions
 from routine_bot.messages.utils import flex_bubble_template
 
 
-def enter_event_name() -> TextMessage:
-    return TextMessage(text="請輸入要記的事項名稱（2～10 個字）🍞")
+def enter_event_name() -> FlexMessage:
+    bubble = flex_bubble_template(title="🍞 新事項", lines=["📝 請輸入要記的事項名稱（2～10 個字）"])
+    return FlexMessage(altText="🍞 輸入新事項的名稱", contents=bubble)
 
 
 def select_start_date(chat_payload: dict[str, str]) -> TemplateMessage:
@@ -110,7 +110,7 @@ def invalid_entry_for_enable_reminder(chat_payload: dict[str, str]) -> TemplateM
         text="\n🗓 ⚠️ 嗯～我不太確定你的意思\n\n✨ 再幫我選一次，要不要開啟提醒呢？",
         actions=[
             MessageAction(label="要", text=NewEventReminderOptions.ENABLE.value),
-            MessageAction(label="不用", text=NewEventReminderOptions.DISABLE.va),
+            MessageAction(label="不用", text=NewEventReminderOptions.DISABLE.value),
         ],
     )
     msg = TemplateMessage(

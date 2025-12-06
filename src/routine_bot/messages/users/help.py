@@ -14,6 +14,7 @@ def format_help():
             f"{Command.DONE.value} ➜ 新增事項的完成紀錄",
             f"{Command.FIND.value} ➜ 查詢事項與相關的紀錄",
             "🗂️ 管理事項",
+            f"{Command.EDIT.value} ➜ 編輯事項內容",
             f"{Command.DELETE.value} ➜ 刪除不需要的事項",
             f"{Command.VIEW_ALL.value} ➜ 瀏覽目前所有記得的事項",
             "🧭 其他功能",
