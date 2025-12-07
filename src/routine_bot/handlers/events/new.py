@@ -209,7 +209,7 @@ def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage
         raise ValueError(f"User not found: {user_id}")
     if user.is_limited:
         logger.info("Failed to create new event: reached max events allowed")
-        return msg.info.max_events_reached()
+        return msg.error.max_events_reached()
     chat_id = str(uuid.uuid4())
     logger.info("Creating new chat, chat type: new event")
     logger.info(f"Chat ID: {chat_id}")

@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime
 
 import psycopg
@@ -66,25 +67,71 @@ async def send_reminder(request: Request):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
 
     logger.info("Starting the reminder sending process")
-    with (
-        psycopg.connect(conninfo=DATABASE_URL) as conn,
-        ApiClient(configuration) as api_client,
-    ):
-        line_bot_api = MessagingApi(api_client)
-        time_slot = datetime.now(TZ_TAIPEI).replace(minute=0, second=0, microsecond=0).time()
-        logger.info(f"Current time slot: {time_slot}")
-        users = user_db.list_active_users_by_notification_slot(time_slot, conn)
-        logger.info(f"Number of users to process: {len(users)}")
-        for user in users:
-            if user.is_limited:
-                logger.info(f"User {user.user_id} failed to receive reminders: reached max events allowed")
-                error_msg = msg.info.reminder_disabled()
-                line_bot_api.push_message(PushMessageRequest(to=user.user_id, messages=[error_msg]))
-                continue
-            logger.info(f"Processing for user: {user.user_id}")
-            send_reminders_for_user_owned_events(user.user_id, line_bot_api, conn)
-            send_reminders_for_shared_events(user.user_id, line_bot_api, conn)
-            logger.info(f"Processing completed for user: {user.user_id}")
-    logger.info("Reminder sending process completed")
+    start_time = time.time()
+    execution_start = datetime.now(TZ_TAIPEI)
+    try:
+        with (
+            psycopg.connect(conninfo=DATABASE_URL) as conn,
+            ApiClient(configuration) as api_client,
+        ):
+            line_bot_api = MessagingApi(api_client)
+            time_slot = datetime.now(TZ_TAIPEI).replace(minute=0, second=0, microsecond=0).time()
+            logger.info(f"Current time slot: {time_slot}")
+            users = user_db.list_active_users_by_notification_slot(time_slot, conn)
+            logger.info(f"Users found in this time slot: {len(users)}")
+            limited_users = 0
+            user_owned_events = 0
+            shared_events = 0
+            for user in users:
+                if user.is_limited:
+                    limited_users += 1
+                    logger.info(f"User {user.user_id} failed to receive reminders: reached max events allowed")
+                    error_msg = msg.error.reminder_disabled()
+                    line_bot_api.push_message(PushMessageRequest(to=user.user_id, messages=[error_msg]))
+                    continue
+                logger.info(f"Processing for user: {user.user_id}")
+                user_owned_events += send_reminders_for_user_owned_events(user.user_id, line_bot_api, conn)
+                shared_events += send_reminders_for_shared_events(user.user_id, line_bot_api, conn)
+                logger.info(f"Processing completed for user: {user.user_id}")
+        elapsed_time = time.time() - start_time
+        logger.info("Reminder sending process completed")
+        logger.info("┌── Sender Summary ─────────────────────────")
+        logger.info(f"│ Time Slot: {time_slot}")
+        logger.info(f"│ Execution Start: {execution_start}")
+        logger.info(f"│ All Users: {len(users)}")
+        logger.info(f"│ Processed Users: {len(users) - limited_users}")
+        logger.info(f"│ Limited Users: {limited_users}")
+        logger.info(f"│ All Events Sent: {user_owned_events + shared_events}")
+        logger.info(f"│ User Owned Events: {user_owned_events}")
+        logger.info(f"│ Shared Events: {shared_events}")
+        logger.info(f"│ Elapsed Time: {round(elapsed_time)} sec")
+        logger.info("└───────────────────────────────────────────")
 
-    return Response(status_code=status.HTTP_200_OK)
+    except Exception as e:
+        if ENV == "develop":
+            logger.error(f"An error occurred during the reminder sending process: {e}", exc_info=True)
+        else:
+            logger.error(f"An error occurred during the reminder sending process: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal Server Error",
+        )
+
+    return Response(
+        content={
+            "status": "success",
+            "execution_details": {
+                "time_slot": str(time_slot),
+                "execution_start": execution_start.isoformat(),
+                "all_users": len(users),
+                "processed_users": len(users) - limited_users,
+                "limited_users": limited_users,
+                "all_events_sent": user_owned_events + shared_events,
+                "user_owned_events": user_owned_events,
+                "shared_events": shared_events,
+                "elapsed_time_sec": round(elapsed_time),
+            },
+        },
+        media_type="application/json",
+        status_code=status.HTTP_200_OK,
+    )
