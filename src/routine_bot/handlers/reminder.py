@@ -32,7 +32,7 @@ def send_reminders_for_shared_events(user_id: str, line_bot_api: MessagingApi, c
         logger.info(f"Found: {len(events)} overdue shared events")
         for event in events:
             owner_profile = get_user_profile(event.user_id)
-            push_msg = msg.reminder.shared_event(event, owner_profile)
+            push_msg = msg.reminder.shared_event(event, owner_profile.display_name)
             line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[push_msg]))
             logger.info(f"Sent reminder for event: {event.event_id}")
     return len(events)

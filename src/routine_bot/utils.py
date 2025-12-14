@@ -1,5 +1,6 @@
 import logging
 import re
+from dataclasses import dataclass
 
 import requests
 from cachetools.func import ttl_cache
@@ -15,18 +16,27 @@ def format_logger_name(module_name: str) -> str:
 logger = logging.getLogger(format_logger_name(__name__))
 
 
+def _camel_to_snake(text):
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", text).lower()
+
+
+@dataclass
+class UserProfile:
+    user_id: str
+    display_name: str
+    language: str
+    picture_url: str | None = None
+    status_message: str | None = None
+
+
 @ttl_cache(maxsize=None, ttl=600)
-def get_user_profile(user_id: str) -> dict[str, str]:
+def get_user_profile(user_id: str) -> UserProfile:
     url = f"https://api.line.me/v2/bot/profile/{user_id}"
     headers = {"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"}
-
-    try:
-        resp = requests.get(url, headers=headers)
-        resp.raise_for_status()
-        return resp.json()
-    except requests.RequestException as e:
-        logger.error(f"Failed to fetch user profile: {e}")
-        return {}
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    print({_camel_to_snake(key): val for key, val in resp.json().items()})
+    return UserProfile(**{_camel_to_snake(key): val for key, val in resp.json().items()})
 
 
 def sanitize_msg(text: str) -> str:
