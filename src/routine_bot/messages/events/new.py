@@ -6,6 +6,7 @@ from linebot.v3.messaging import (
     TemplateMessage,
 )
 
+from routine_bot.constants import FREE_PLAN_MAX_EVENTS
 from routine_bot.enums.options import NewEventReminderOptions
 from routine_bot.messages.utils import flex_bubble_template
 
@@ -81,7 +82,7 @@ def succeeded_with_reminder(chat_payload: dict[str, str]) -> FlexMessage:
 def invalid_entry_for_start_date(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
-        text="\n⚠️ 嗯～我不太確定你的意思\n\n✨ 幫我用下方按鈕選個日期吧",
+        text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 幫我用下方按鈕選個日期吧",
         actions=[DatetimePickerAction(label="選擇開始日期", data=chat_payload["chat_id"], mode="date")],
     )
     msg = TemplateMessage(
@@ -107,7 +108,7 @@ def invalid_start_date_selected_exceeds_today(
 def invalid_entry_for_enable_reminder(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
-        text="\n🗓 ⚠️ 嗯～我不太確定你的意思\n\n✨ 再幫我選一次，要不要開啟提醒呢？",
+        text="\n🗓 ⚠️ 嗯？我不太確定你的意思\n\n✨ 再幫我選一次，要不要開啟提醒呢？",
         actions=[
             MessageAction(label="要", text=NewEventReminderOptions.ENABLE.value),
             MessageAction(label="不用", text=NewEventReminderOptions.DISABLE.value),
@@ -122,7 +123,7 @@ def invalid_entry_for_enable_reminder(chat_payload: dict[str, str]) -> TemplateM
 def invalid_entry_for_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
-        text="\n⚠️ 嗯～我不太確定你的意思\n\n✨ 幫我透過下方按鈕選擇重複週期吧",
+        text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 幫我透過下方按鈕選擇重複週期吧",
         actions=[
             MessageAction(label="每天", text="1 day"),
             MessageAction(label="每週一次", text="1 week"),
@@ -132,5 +133,22 @@ def invalid_entry_for_event_cycle(chat_payload: dict[str, str]) -> TemplateMessa
     )
     msg = TemplateMessage(
         altText=f"🎯 新事件［{chat_payload['event_name']}］⚠️ 輸入無效，請重新選擇重複週期", template=template
+    )
+    return msg
+
+
+def max_events_reached() -> FlexMessage:
+    bubble = flex_bubble_template(
+        title="⚠️ 無法新增事項",
+        lines=[
+            f"🔒 你已達免費方案上限（{FREE_PLAN_MAX_EVENTS} 個事項）",
+            "💡 你可以選擇：",
+            "🗑️ 刪除一些不再需要的事項",
+            "🚀 升級到 Premium 方案，享受無上限新增",
+        ],
+    )
+    msg = FlexMessage(
+        altText="⚠️ 無法新增事項，請刪除多餘事項或升級至 Premium",
+        contents=bubble,
     )
     return msg

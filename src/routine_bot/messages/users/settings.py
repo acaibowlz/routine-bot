@@ -64,7 +64,7 @@ def succeeded(chat_payload: dict[str, str]) -> FlexMessage:
 def invalid_input_for_option(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title="⚙️ 使用者設定",
-        text="\n⚠️ 嗯～我不太確定你的意思\n\n✨ 幫我從下面選一個設定項目吧",
+        text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 幫我從下面選一個設定項目吧",
         actions=[
             MessageAction(label="更改提醒時段", text="更改提醒時段"),
         ],
@@ -78,7 +78,7 @@ def invalid_input_for_time_slot(
 ) -> TemplateMessage:
     template = ButtonsTemplate(
         title="⚙️ 更改提醒時段",
-        text="\n⚠️ 嗯～我不太確定你的意思\n\n✨ 幫我選個新的提醒時段吧",
+        text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 幫我選個新的提醒時段吧",
         actions=[
             DatetimePickerAction(
                 label="選擇新時段",

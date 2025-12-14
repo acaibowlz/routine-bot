@@ -47,7 +47,7 @@ def cancelled(event_name: str) -> FlexMessage:
 
 
 def invalid_delete_confirmation(event: EventData) -> TemplateMessage:
-    text = "\n⚠️ 嗯～我不太確定你的意思\n\n✨ 請幫我從下方按鈕確認是否刪除"
+    text = "\n⚠️ 嗯？我不太確定你的意思\n\n✨ 請幫我從下方按鈕確認是否刪除"
     template = ButtonsTemplate(
         title=f"🍞 刪除［{event.event_name}］",
         text=text,

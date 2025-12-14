@@ -15,8 +15,3 @@ def event_cycle_example() -> FlexMessage:
         ],
     )
     return FlexMessage(altText="✨ 請輸入循環週期", contents=bubble)
-
-
-def ongoing_chat_aborted() -> FlexMessage:
-    bubble = flex_bubble_template(title="⏸️ 已幫你停下目前的指令", lines=["🍞 可以輸入新的指令，繼續操作囉～"])
-    return FlexMessage(altText="🍞 可以輸入新的指令，繼續操作囉～", contents=bubble)

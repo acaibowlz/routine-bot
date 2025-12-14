@@ -154,7 +154,7 @@ def invalid_edit_option_entry(chat_payload: dict[str, str]) -> TemplateMessage:
         actions.append(MessageAction(label="編輯重複週期", text=f"{EditEventOptions.EVENT_CYCLE.value}"))
     template = ButtonsTemplate(
         title=f"🍞 編輯［{chat_payload['event_name']}］",
-        text="\n⚠️ 嗯～我不太確定你的意思\n\n✨ 幫我從下方選擇一個項目吧～",
+        text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 幫我從下方選擇一個項目吧～",
         actions=actions,
     )
     msg = TemplateMessage(
@@ -180,9 +180,9 @@ def event_cycle_requires_reminder_enabled(chat_payload: dict[str, str]) -> Templ
 
 def invalid_toggle_reminder_entry(chat_payload: dict[str, str]) -> TemplateMessage:
     if chat_payload["reminder_enabled"] == "True":
-        text = "\n⚠️ 嗯～我不太確定你的意思\n\n🔔 目前的提醒是開啟的喔～\n\n✨ 想要先關閉一下嗎？"
+        text = "\n⚠️ 嗯？我不太確定你的意思\n\n🔔 目前的提醒是開啟的喔～\n\n✨ 想要先關閉一下嗎？"
     else:
-        text = "\n⚠️ 嗯～我不太確定你的意思\n\n🔕 目前的提醒是關閉的喔～\n\n✨ 要不要幫你開啟提醒呢？"
+        text = "\n⚠️ 嗯？我不太確定你的意思\n\n🔕 目前的提醒是關閉的喔～\n\n✨ 要不要幫你開啟提醒呢？"
     template = ButtonsTemplate(
         title=f"🍞 調整［{chat_payload['event_name']}］的提醒",
         text=text,
@@ -201,7 +201,7 @@ def invalid_toggle_reminder_entry(chat_payload: dict[str, str]) -> TemplateMessa
 def invalid_event_cycle_entry(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 調整［{chat_payload['event_name']}］的重複週期",
-        text="\n⚠️ 嗯～我不太確定你的意思\n\n✨ 請由下方選擇重複週期",
+        text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 請由下方選擇重複週期",
         actions=[
             MessageAction(label="每天", text="1 day"),
             MessageAction(label="每週一次", text="1 week"),
