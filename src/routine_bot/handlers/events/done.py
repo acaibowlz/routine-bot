@@ -33,13 +33,13 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
         return msg.error.event_name_not_found(event_name)
 
     chat_db.set_chat_current_step(chat.chat_id, DoneEventSteps.SELECT_DONE_DATE.value, conn)
-    new_payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.update_chat_payload(
         chat_id=chat.chat_id,
         data={"event_id": event_id, "event_name": event_name, "chat_id": chat.chat_id},
         conn=conn,
         logger=logger,
     )
-    return msg.events.done.select_done_at(new_payload)
+    return msg.events.done.select_done_at(chat.payload)
 
 
 # this function is called by handle_postback in handlers/main.py
@@ -81,13 +81,13 @@ def process_selected_done_date(
         event_db.set_event_last_done_at(event_id, done_at, conn)
 
     chat_db.finish_chat(chat, conn, logger)
-    new_payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.update_chat_payload(
         chat_id=chat.chat_id,
         data={"done_at": done_at.isoformat()},
         conn=conn,
         logger=logger,
     )
-    return msg.events.done.succeeded(new_payload)
+    return msg.events.done.succeeded(chat.payload)
 
 
 def create_done_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:

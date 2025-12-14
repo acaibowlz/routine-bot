@@ -37,13 +37,13 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
         return msg.error.event_name_duplicated(event_name)
 
     chat_db.update_chat_current_step(chat, NewEventSteps.SELECT_START_DATE.value, conn, logger)
-    new_payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.update_chat_payload(
         chat_id=chat.chat_id,
         data={"event_name": event_name, "chat_id": chat.chat_id},
         conn=conn,
         logger=logger,
     )
-    return msg.events.new.select_start_date(new_payload)
+    return msg.events.new.select_start_date(chat.payload)
 
 
 # this function is called by handle_postback in handlers/main.py
@@ -60,13 +60,13 @@ def process_selected_start_date(postback: PostbackEvent, chat: ChatData, conn: p
         return msg.events.new.invalid_start_date_selected_exceeds_today(chat.payload)
 
     chat_db.update_chat_current_step(chat, NewEventSteps.ENTER_REMINDER_OPTION.value, conn, logger)
-    new_payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.update_chat_payload(
         chat_id=chat.chat_id,
         data={"start_date": start_date.isoformat()},
         conn=conn,
         logger=logger,
     )
-    return msg.events.new.enable_reminder(new_payload)
+    return msg.events.new.enable_reminder(chat.payload)
 
 
 def _process_reminder_enabled(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
@@ -182,10 +182,10 @@ def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connecti
     user_db.increment_user_event_count(chat.user_id, by=1, conn=conn)
 
     chat_db.finish_chat(chat, conn, logger)
-    new_payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.update_chat_payload(
         chat=chat, data={"event_cycle": event_cycle, "next_due_at": next_due_at.isoformat()}, conn=conn, logger=logger
     )
-    return msg.events.new.succeeded_with_reminder(new_payload)
+    return msg.events.new.succeeded_with_reminder(chat.payload)
 
 
 def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:

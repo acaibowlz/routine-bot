@@ -38,7 +38,7 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
     event = event_db.get_event(event_id, conn)
     assert event is not None, "Event is not suppose to be missing"
     chat_db.update_chat_current_step(chat, EditEventSteps.SELECT_OPTION.value, conn, logger)
-    new_payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.update_chat_payload(
         chat=chat,
         data={
             "event_name": event_name,
@@ -50,7 +50,7 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
         conn=conn,
         logger=logger,
     )
-    return msg.events.edit.select_option(new_payload)
+    return msg.events.edit.select_option(chat.payload)
 
 
 def _prepare_new_event_name_entry(chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
@@ -108,10 +108,10 @@ def _process_new_event_name_entry(text: str, chat: ChatData, conn: psycopg.Conne
     event_db.set_event_name(event.event_id, new_event_name, conn)
 
     chat_db.finish_chat(chat, conn, logger)
-    new_payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.update_chat_payload(
         chat=chat, data={"new_event_name": new_event_name}, conn=conn, logger=logger
     )
-    return msg.events.edit.edit_event_name_succeeded(new_payload)
+    return msg.events.edit.edit_event_name_succeeded(chat.payload)
 
 
 def _process_toggle_reminder(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
@@ -128,10 +128,10 @@ def _process_toggle_reminder(text: str, chat: ChatData, conn: psycopg.Connection
         if new_reminder_flag and chat.payload["event_cycle"] == "None":
             logger.info("Event cycle is missing, proceed to set event cycle")
             chat_db.update_chat_current_step(chat, EditEventSteps.ENTER_NEW_EVENT_CYCLE.value, conn, logger)
-            new_payload = chat_db.update_chat_payload(
+            chat.payload = chat_db.update_chat_payload(
                 chat=chat, data={"proceed_from_toggle_reminder": str(True)}, conn=conn, logger=logger
             )
-            return msg.events.edit.proceed_to_set_event_cycle(new_payload)
+            return msg.events.edit.proceed_to_set_event_cycle(chat.payload)
 
         event = event_db.get_event(chat.payload["event_id"], conn)
         assert event is not None, "Event is not suppose to be missing"
@@ -194,15 +194,15 @@ def _process_new_event_cycle_entry(
         event_db.set_event_reminder_flag(event_id, True, conn)
 
     chat_db.finish_chat(chat, conn, logger)
-    new_payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.update_chat_payload(
         chat=chat,
         data={"new_event_cycle": new_event_cycle, "next_due_at": next_due_at.isoformat()},
         conn=conn,
         logger=logger,
     )
-    if new_payload.get("proceed_from_toggle_reminder"):
-        return msg.events.edit.toggle_reminder_succeeded(new_payload)
-    return msg.events.edit.edit_event_cycle_succeeded(new_payload)
+    if chat.payload.get("proceed_from_toggle_reminder"):
+        return msg.events.edit.toggle_reminder_succeeded(chat.payload)
+    return msg.events.edit.edit_event_cycle_succeeded(chat.payload)
 
 
 def create_edit_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:

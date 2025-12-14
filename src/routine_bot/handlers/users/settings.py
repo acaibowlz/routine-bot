@@ -25,13 +25,13 @@ def _prepare_new_time_slot_selection(chat: ChatData, conn: psycopg.Connection) -
     if user is None:
         raise ValueError(f"User not found: {chat.user_id}")
     chat_db.update_chat_current_step(chat, UserSettingsSteps.SELECT_NEW_TIME_SLOT.value, conn, logger)
-    new_payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.update_chat_payload(
         chat=chat,
         data={"chat_id": chat.chat_id, "current_slot": user.notification_slot.strftime("%H:%M")},
         conn=conn,
         logger=logger,
     )
-    return msg.users.settings.select_new_time_slot(new_payload)
+    return msg.users.settings.select_new_time_slot(chat.payload)
 
 
 def _process_selected_option(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
@@ -59,10 +59,10 @@ def process_new_time_slot_selection(
         logger.info(f"New notification slot: {time_slot}")
         user_db.set_user_time_slot(chat.user_id, time_slot, conn)
         chat_db.finish_chat(chat, conn, logger)
-        new_payload = chat_db.update_chat_payload(
+        chat.payload = chat_db.update_chat_payload(
             chat=chat, data={"new_slot": time_slot.strftime("%H:%M")}, conn=conn, logger=logger
         )
-        return msg.users.settings.succeeded(new_payload)
+        return msg.users.settings.succeeded(chat.payload)
 
 
 def create_user_settings_chat(user_id: str, conn: psycopg.Connection) -> TemplateMessage:
