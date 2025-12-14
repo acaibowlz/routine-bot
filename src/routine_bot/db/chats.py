@@ -61,19 +61,6 @@ def get_ongoing_chat_id(user_id: str, conn: psycopg.Connection) -> str | None:
         return result[0]
 
 
-def set_chat_current_step(chat_id: str, current_step: str | None, conn: psycopg.Connection) -> None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            UPDATE chats
-            SET current_step = %s
-            WHERE chat_id = %s
-            """,
-            (current_step, chat_id),
-        )
-    logger.debug(f"Updating current_step for chat: {chat_id}")
-
-
 def set_chat_payload(chat_id: str, payload: dict, conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -87,6 +74,19 @@ def set_chat_payload(chat_id: str, payload: dict, conn: psycopg.Connection) -> N
     logger.debug(f"Updating payload for chat: {chat_id}")
 
 
+def set_chat_current_step(chat_id: str, current_step: str | None, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE chats
+            SET current_step = %s
+            WHERE chat_id = %s
+            """,
+            (current_step, chat_id),
+        )
+    logger.debug(f"Updating current_step for chat: {chat_id}")
+
+
 def set_chat_status(chat_id: str, status: str, conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -98,3 +98,34 @@ def set_chat_status(chat_id: str, status: str, conn: psycopg.Connection) -> None
             (status, chat_id),
         )
     logger.debug(f"Updating status for chat: {chat_id}")
+
+
+def update_chat_payload(
+    chat: ChatData, data: dict[str, str], conn: psycopg.Connection, logger: logging.Logger
+) -> dict[str, str]:
+    for key, val in data.items():
+        if not chat.payload.get(key):
+            logger.debug(f"Adding to payload: {key}={val}")
+        else:
+            logger.debug(f"Overwriting payload: {key}={val} (was {chat.payload['key']})")
+        chat.payload[key] = val
+    set_chat_payload(chat.chat_id, chat.payload, conn)
+    return chat.payload
+
+
+def update_chat_current_step(
+    chat: ChatData, current_step: str | None, conn: psycopg.Connection, logger: logging.Logger
+) -> None:
+    logger.info(f"Setting current_step={current_step}")
+    set_chat_current_step(chat.chat_id, current_step, conn)
+
+
+def update_chat_status(chat: ChatData, status: str, conn: psycopg.Connection, logger: logging.Logger) -> None:
+    logger.info(f"Setting status={status}")
+    set_chat_status(chat.chat_id, chat.status, conn)
+
+
+def finish_chat(chat: ChatData, conn: psycopg.Connection, logger: logging.Logger) -> None:
+    logger.info(f"Finishing chat: {chat.chat_id}")
+    update_chat_current_step(chat, None, conn, logger)
+    update_chat_status(chat, ChatStatus.COMPLETED.value, conn, logger)

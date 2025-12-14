@@ -32,17 +32,14 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
         logger.info(f"Event not found: {event_name}")
         return msg.error.event_name_not_found(event_name)
 
-    chat.payload["event_id"] = event_id
-    chat.payload["event_name"] = event_name
-    chat.payload["chat_id"] = chat.chat_id
-    chat.current_step = DoneEventSteps.SELECT_DONE_DATE.value
-    logger.debug(f"Adding to payload: event_id={chat.payload['event_id']}")
-    logger.debug(f"Adding to payload: event_name={chat.payload['event_name']}")
-    logger.debug(f"Adding to payload: chat_id={chat.payload['chat_id']}")
-    logger.info(f"Setting current_step={chat.current_step}")
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    return msg.events.done.select_done_at(chat.payload)
+    chat_db.set_chat_current_step(chat.chat_id, DoneEventSteps.SELECT_DONE_DATE.value, conn)
+    new_payload = chat_db.update_chat_payload(
+        chat_id=chat.chat_id,
+        data={"event_id": event_id, "event_name": event_name, "chat_id": chat.chat_id},
+        conn=conn,
+        logger=logger,
+    )
+    return msg.events.done.select_done_at(new_payload)
 
 
 # this function is called by handle_postback in handlers/main.py
@@ -83,16 +80,14 @@ def process_selected_done_date(
         logger.info("The new done date is more recent than the event's latest record, updating it")
         event_db.set_event_last_done_at(event_id, done_at, conn)
 
-    chat.payload["done_at"] = done_at.isoformat()
-    chat.current_step = None
-    chat.status = ChatStatus.COMPLETED.value
-    logger.debug(f"Adding to payload: done_at={chat.payload['done_at']}")
-    logger.info(f"Setting current_step={chat.current_step}")
-    logger.info(f"Finishing chat: {chat.chat_id}")
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
-    return msg.events.done.succeeded(chat.payload)
+    chat_db.finish_chat(chat, conn, logger)
+    new_payload = chat_db.update_chat_payload(
+        chat_id=chat.chat_id,
+        data={"done_at": done_at.isoformat()},
+        conn=conn,
+        logger=logger,
+    )
+    return msg.events.done.succeeded(new_payload)
 
 
 def create_done_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:

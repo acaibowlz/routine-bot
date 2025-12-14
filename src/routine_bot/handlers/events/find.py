@@ -33,22 +33,16 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
     assert event is not None, "Event is not suppose to be missing"
     recent_records = record_db.list_event_recent_records(event_id, conn)
     logger.info("┌── Event Found ────────────────────────────")
-    logger.info(f"│ ID: {event_id}")
+    logger.info(f"│ Event Name: {event_name}")
+    logger.info(f"│ Event ID: {event_id}")
     logger.info(f"│ User: {event.user_id}")
-    logger.info(f"│ Name: {event_name}")
     logger.info(f"│ Reminder: {event.reminder_enabled}")
     logger.info(f"│ Cycle: {event.event_cycle}")
     logger.info(f"│ Last Done: {event.last_done_at}")
     logger.info(f"│ Next Due: {event.next_due_at}")
     logger.info(f"│ Recent Records: {len(recent_records)}")
     logger.info("└───────────────────────────────────────────")
-
-    chat.current_step = None
-    chat.status = ChatStatus.COMPLETED.value
-    logger.info(f"Setting current_step={chat.current_step}")
-    logger.info(f"Finishing chat: {chat.chat_id}")
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
+    chat_db.finish_chat(chat, conn, logger)
     return msg.events.find.format_event_summary(event, recent_records)
 
 

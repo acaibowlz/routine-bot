@@ -36,15 +36,14 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
         logger.info(f"Duplicated event name entry: {event_name}")
         return msg.error.event_name_duplicated(event_name)
 
-    chat.payload["event_name"] = event_name
-    chat.payload["chat_id"] = chat.chat_id
-    logger.debug(f"Adding to payload: event_name={event_name}")
-    logger.debug(f"Adding to payload: chat_id={chat.chat_id}")
-    logger.info(f"Setting current_step={chat.current_step}")
-    chat.current_step = NewEventSteps.SELECT_START_DATE.value
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    return msg.events.new.select_start_date(chat.payload)
+    chat_db.update_chat_current_step(chat, NewEventSteps.SELECT_START_DATE.value, conn, logger)
+    new_payload = chat_db.update_chat_payload(
+        chat_id=chat.chat_id,
+        data={"event_name": event_name, "chat_id": chat.chat_id},
+        conn=conn,
+        logger=logger,
+    )
+    return msg.events.new.select_start_date(new_payload)
 
 
 # this function is called by handle_postback in handlers/main.py
@@ -60,20 +59,19 @@ def process_selected_start_date(postback: PostbackEvent, chat: ChatData, conn: p
         logger.debug("Start date exceeds today")
         return msg.events.new.invalid_start_date_selected_exceeds_today(chat.payload)
 
-    chat.payload["start_date"] = start_date.isoformat()
-    chat.current_step = NewEventSteps.ENTER_REMINDER_OPTION.value
-    logger.debug(f"Adding to payload: start_date={chat.payload['start_date']}")
-    logger.info(f"Setting current_step={chat.current_step}")
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    return msg.events.new.enable_reminder(chat.payload)
+    chat_db.update_chat_current_step(chat, NewEventSteps.ENTER_REMINDER_OPTION.value, conn, logger)
+    new_payload = chat_db.update_chat_payload(
+        chat_id=chat.chat_id,
+        data={"start_date": start_date.isoformat()},
+        conn=conn,
+        logger=logger,
+    )
+    return msg.events.new.enable_reminder(new_payload)
 
 
 def _process_reminder_enabled(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
     logger.info("Reminder is enabled")
-    chat.current_step = NewEventSteps.ENTER_EVENT_CYCLE.value
-    logger.info(f"Setting current_step={chat.current_step}")
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
+    chat_db.update_chat_current_step(chat, NewEventSteps.ENTER_EVENT_CYCLE.value, conn, logger)
     return msg.events.new.select_event_cycle(chat.payload)
 
 
@@ -92,9 +90,9 @@ def _process_reminder_disabled(chat: ChatData, conn: psycopg.Connection) -> Flex
         is_active=True,
     )
     logger.info("┌── Creating New Event ─────────────────────")
-    logger.info(f"│ ID: {event_id}")
+    logger.info(f"│ Event Name: {event.event_name}")
+    logger.info(f"│ Event ID: {event_id}")
     logger.info(f"│ User: {event.user_id}")
-    logger.info(f"│ Name: {event.event_name}")
     logger.info(f"│ Reminder: {event.reminder_enabled}")
     logger.info(f"│ Last Done: {event.last_done_at.astimezone(UTC)}")
     logger.info("└───────────────────────────────────────────")
@@ -109,13 +107,7 @@ def _process_reminder_disabled(chat: ChatData, conn: psycopg.Connection) -> Flex
     )
     record_db.add_record(record, conn)
     user_db.increment_user_event_count(chat.user_id, by=1, conn=conn)
-
-    chat.current_step = None
-    chat.status = ChatStatus.COMPLETED.value
-    logger.info(f"Setting current_step={chat.current_step}")
-    logger.info(f"Finishing chat: {chat.chat_id}")
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
+    chat_db.finish_chat(chat, conn, logger)
     return msg.events.new.succeeded_no_reminder(chat.payload)
 
 
@@ -139,10 +131,10 @@ def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connecti
         return msg.info.event_cycle_example()
 
     # remove plural form
-    text = text.rstrip("s")
-    increment, unit = parse_event_cycle(text)
+    event_cycle = text.rstrip("s")
+    increment, unit = parse_event_cycle(event_cycle)
     if increment is None or unit is None:
-        logger.info(f"Invalid event cycle entry: {text}")
+        logger.info(f"Invalid event cycle entry: {event_cycle}")
         return msg.events.new.invalid_entry_for_event_cycle(chat.payload)
 
     start_date = datetime.fromisoformat(chat.payload["start_date"])
@@ -167,11 +159,11 @@ def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connecti
         share_count=0,
         is_active=True,
     )
-    assert event.next_due_at is not None, "Next due date should be set at this step"
+    assert event.next_due_at is not None, "Next due date is not suppose to be empty"
     logger.info("┌── Creating New Event ─────────────────────")
-    logger.info(f"│ ID: {event_id}")
+    logger.info(f"│ Event Name: {event.event_name}")
+    logger.info(f"│ Event ID: {event_id}")
     logger.info(f"│ User: {event.user_id}")
-    logger.info(f"│ Name: {event.event_name}")
     logger.info(f"│ Reminder: {event.reminder_enabled}")
     logger.info(f"│ Cycle: {event.event_cycle}")
     logger.info(f"│ Last Done: {event.last_done_at.astimezone(UTC)}")
@@ -189,18 +181,11 @@ def _process_event_cycle_entry(text: str, chat: ChatData, conn: psycopg.Connecti
     record_db.add_record(update, conn)
     user_db.increment_user_event_count(chat.user_id, by=1, conn=conn)
 
-    chat.payload["event_cycle"] = text
-    chat.payload["next_due_at"] = next_due_at.isoformat()
-    chat.current_step = None
-    chat.status = ChatStatus.COMPLETED.value
-    logger.debug(f"Adding to payload: event_cycle={chat.payload['event_cycle']}")
-    logger.debug(f"Adding to payload: next_due_at={chat.payload['next_due_at']}")
-    logger.info(f"Setting current_step={chat.current_step}")
-    logger.info(f"Finishing chat: {chat.chat_id}")
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    chat_db.set_chat_status(chat.chat_id, chat.status, conn)
-    return msg.events.new.succeeded_with_reminder(chat.payload)
+    chat_db.finish_chat(chat, conn, logger)
+    new_payload = chat_db.update_chat_payload(
+        chat=chat, data={"event_cycle": event_cycle, "next_due_at": next_due_at.isoformat()}, conn=conn, logger=logger
+    )
+    return msg.events.new.succeeded_with_reminder(new_payload)
 
 
 def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:
@@ -208,8 +193,8 @@ def create_new_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage
     if user is None:
         raise ValueError(f"User not found: {user_id}")
     if user.is_limited:
-        logger.info("Failed to create new event: reached max events allowed")
-        return msg.error.max_events_reached()
+        logger.info("Failed to create new event: reached free plan max event count")
+        return msg.events.new.max_events_reached()
     chat_id = str(uuid.uuid4())
     logger.info("Creating new chat, chat type: new event")
     logger.info(f"Chat ID: {chat_id}")

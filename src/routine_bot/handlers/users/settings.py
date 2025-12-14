@@ -24,15 +24,14 @@ def _prepare_new_time_slot_selection(chat: ChatData, conn: psycopg.Connection) -
     user = user_db.get_user(chat.user_id, conn)
     if user is None:
         raise ValueError(f"User not found: {chat.user_id}")
-    chat.payload["chat_id"] = chat.chat_id
-    chat.payload["current_slot"] = user.notification_slot.strftime("%H:%M")
-    chat.current_step = UserSettingsSteps.SELECT_NEW_TIME_SLOT.value
-    logger.debug(f"Adding to payload: chat_id={chat.chat_id}")
-    logger.debug(f"Adding to payload: current_slot={chat.payload['current_slot']}")
-    logger.info(f"Setting current_step={chat.current_step}")
-    chat_db.set_chat_payload(chat.chat_id, chat.payload, conn)
-    chat_db.set_chat_current_step(chat.chat_id, chat.current_step, conn)
-    return msg.users.settings.select_new_time_slot(chat.payload)
+    chat_db.update_chat_current_step(chat, UserSettingsSteps.SELECT_NEW_TIME_SLOT.value, conn, logger)
+    new_payload = chat_db.update_chat_payload(
+        chat=chat,
+        data={"chat_id": chat.chat_id, "current_slot": user.notification_slot.strftime("%H:%M")},
+        conn=conn,
+        logger=logger,
+    )
+    return msg.users.settings.select_new_time_slot(new_payload)
 
 
 def _process_selected_option(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
@@ -59,13 +58,11 @@ def process_new_time_slot_selection(
         time_slot = datetime.strptime(time_slot, "%H:%M").time()
         logger.info(f"New notification slot: {time_slot}")
         user_db.set_user_time_slot(chat.user_id, time_slot, conn)
-        chat.payload["new_slot"] = time_slot.strftime("%H:%M")
-        chat.status = ChatStatus.COMPLETED.value
-        logger.info(f"Setting current_step={chat.current_step}")
-        logger.info(f"Finishing chat: {chat.chat_id}")
-        chat_db.set_chat_current_step(chat.chat_id, None, conn)
-        chat_db.set_chat_status(chat.chat_id, chat.status, conn)
-        return msg.users.settings.succeeded(chat.payload)
+        chat_db.finish_chat(chat, conn, logger)
+        new_payload = chat_db.update_chat_payload(
+            chat=chat, data={"new_slot": time_slot.strftime("%H:%M")}, conn=conn, logger=logger
+        )
+        return msg.users.settings.succeeded(new_payload)
 
 
 def create_user_settings_chat(user_id: str, conn: psycopg.Connection) -> TemplateMessage:

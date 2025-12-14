@@ -5,9 +5,11 @@ from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import (
     ApiClient,
     Configuration,
-    Message,
+    FlexMessage,
     MessagingApi,
     ReplyMessageRequest,
+    TemplateMessage,
+    TextMessage,
 )
 from linebot.v3.webhooks import (
     FollowEvent,
@@ -31,11 +33,15 @@ from routine_bot.handlers.events import (
     create_edit_event_chat,
     create_find_event_chat,
     create_new_event_chat,
+    create_receive_event_chat,
+    create_share_event_chat,
     handle_delete_event_chat,
     handle_done_event_chat,
     handle_edit_event_chat,
     handle_find_event_chat,
     handle_new_event_chat,
+    handle_receive_event_chat,
+    handle_share_event_chat,
     handle_view_all_chat,
     process_selected_done_date,
     process_selected_start_date,
@@ -54,30 +60,34 @@ configuration = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 
-def _handle_command(cmd: str, user_id: str, conn: psycopg.Connection) -> Message:
-    if cmd == Command.NEW:
+def _handle_command(text: str, user_id: str, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
+    if text == Command.NEW:
         return create_new_event_chat(user_id, conn)
-    elif cmd == Command.FIND:
+    elif text == Command.FIND:
         return create_find_event_chat(user_id, conn)
-    elif cmd == Command.DELETE:
+    elif text == Command.DELETE:
         return create_delete_event_chat(user_id, conn)
-    elif cmd == Command.VIEW_ALL:
+    elif text == Command.VIEW_ALL:
         return handle_view_all_chat(user_id, conn)
-    elif cmd == Command.DONE:
+    elif text == Command.DONE:
         return create_done_event_chat(user_id, conn)
-    elif cmd == Command.EDIT:
+    elif text == Command.EDIT:
         return create_edit_event_chat(user_id, conn)
-    elif cmd == Command.SETTINGS:
+    elif text == Command.SHARE:
+        return create_share_event_chat(user_id, conn)
+    elif text == Command.RECEIVE:
+        return create_receive_event_chat(user_id, conn)
+    elif text == Command.SETTINGS:
         return create_user_settings_chat(user_id, conn)
-    elif cmd == Command.MENU:
+    elif text == Command.MENU:
         return msg.users.menu.format_menu()
-    elif cmd == Command.HELP:
+    elif text == Command.HELP:
         return msg.users.help.format_help()
     else:
-        raise AssertionError(f"Unknown command in _handle_command: {cmd}")
+        raise AssertionError(f"Unknown command in _handle_command: {text}")
 
 
-def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> Message:
+def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     if chat.chat_type == ChatType.NEW_EVENT:
         return handle_new_event_chat(text, chat, conn)
     elif chat.chat_type == ChatType.FIND_EVENT:
@@ -88,23 +98,27 @@ def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) ->
         return handle_done_event_chat(text, chat, conn)
     elif chat.chat_type == ChatType.EDIT_EVENT:
         return handle_edit_event_chat(text, chat, conn)
+    elif chat.chat_type == ChatType.SHARE_EVENT:
+        return handle_share_event_chat(text, chat, conn)
+    elif chat.chat_type == ChatType.RECEIVE_EVENT:
+        return handle_receive_event_chat(text, chat, conn)
     elif chat.chat_type == ChatType.USER_SETTINGS:
         return handle_user_settings_chat(text, chat, conn)
     else:
         raise AssertionError(f"Unknown chat type in handle_ongoing_chat: {chat.chat_type}")
 
 
-def _get_reply_message(text: str, user_id: str) -> Message:
+def _get_reply_message(text: str, user_id: str) -> TextMessage | TemplateMessage | FlexMessage:
     logger.debug(f"Message received: {text}")
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
         ongoing_chat_id = chat_db.get_ongoing_chat_id(user_id, conn)
 
         if ongoing_chat_id is None:
             if text == Command.ABORT:
-                return msg.error.no_ongoing_chat()
+                return msg.abort.no_ongoing_chat()
             if not text.startswith("/"):
                 return msg.users.greeting.random()
-            if text not in SUPPORTED_COMMANDS:
+            if text.split(" ", maxsplit=1)[0] not in SUPPORTED_COMMANDS:
                 return msg.error.unrecognized_command()
             return _handle_command(text, user_id, conn)
 
@@ -115,10 +129,9 @@ def _get_reply_message(text: str, user_id: str) -> Message:
         logger.debug(f"Current step: {chat.current_step}")
 
         if text == Command.ABORT:
-            chat.status = ChatStatus.ABORTED.value
-            chat_db.set_chat_status(chat.chat_id, ChatStatus.ABORTED.value, conn)
             logger.info(f"Aborting chat: {chat.chat_id}")
-            return msg.info.ongoing_chat_aborted()
+            chat_db.update_chat_status(chat, ChatStatus.ABORTED.value, conn, logger)
+            return msg.abort.ongoing_chat_aborted()
 
         return _handle_ongoing_chat(text, chat, conn)
 
