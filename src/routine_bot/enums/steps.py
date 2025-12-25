@@ -30,6 +30,14 @@ class EditEventSteps(StrEnum):
     ENTER_NEW_EVENT_CYCLE = auto()
 
 
+class ShareEventSteps(StrEnum):
+    ENTER_NAME = auto()
+
+
+class ReceiveEventSteps(StrEnum):
+    ENTER_NAME = auto()
+
+
 class UserSettingsSteps(StrEnum):
     SELECT_OPTION = auto()
     SELECT_NEW_TIME_SLOT = auto()

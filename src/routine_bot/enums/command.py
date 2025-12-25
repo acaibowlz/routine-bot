@@ -8,6 +8,8 @@ class Command(StrEnum):
     VIEW_ALL = "/viewall"
     DONE = "/done"
     EDIT = "/edit"
+    SHARE = "/share"
+    RECEIVE = "/receive"
     ABORT = "/abort"
     SETTINGS = "/settings"
     MENU = "/menu"

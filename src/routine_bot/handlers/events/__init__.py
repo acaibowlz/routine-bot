@@ -10,4 +10,8 @@ from .find import handle_find_event_chat as handle_find_event_chat
 from .new import create_new_event_chat as create_new_event_chat
 from .new import handle_new_event_chat as handle_new_event_chat
 from .new import process_selected_start_date as process_selected_start_date
+from .receive import create_receive_event_chat as create_receive_event_chat
+from .receive import handle_receive_event_chat as handle_receive_event_chat
+from .share import create_share_event_chat as create_share_event_chat
+from .share import handle_share_event_chat as handle_share_event_chat
 from .view_all import handle_view_all_chat as handle_view_all_chat
