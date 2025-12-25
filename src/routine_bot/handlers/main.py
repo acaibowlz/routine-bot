@@ -84,7 +84,7 @@ def _handle_command(text: str, user_id: str, conn: psycopg.Connection) -> Templa
     elif text == Command.HELP:
         return msg.users.help.format_help()
     else:
-        raise AssertionError(f"Unknown command in _handle_command: {text}")
+        raise RuntimeError(f"Unknown command in _handle_command: {text}")
 
 
 def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
@@ -105,7 +105,7 @@ def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) ->
     elif chat.chat_type == ChatType.USER_SETTINGS:
         return handle_user_settings_chat(text, chat, conn)
     else:
-        raise AssertionError(f"Unknown chat type in handle_ongoing_chat: {chat.chat_type}")
+        raise RuntimeError(f"Unknown chat type in handle_ongoing_chat: {chat.chat_type}")
 
 
 def _get_reply_message(text: str, user_id: str) -> TextMessage | TemplateMessage | FlexMessage:
@@ -123,7 +123,8 @@ def _get_reply_message(text: str, user_id: str) -> TextMessage | TemplateMessage
             return _handle_command(text, user_id, conn)
 
         chat = chat_db.get_chat(ongoing_chat_id, conn)
-        assert chat is not None, "Chat is not suppose to be missing"
+        if chat is None:
+            raise RuntimeError(f"Chat not found: {ongoing_chat_id}")
         logger.debug(f"Ongoing chat found: {chat.chat_id}")
         logger.debug(f"Chat type: {chat.chat_type}")
         logger.debug(f"Current step: {chat.current_step}")

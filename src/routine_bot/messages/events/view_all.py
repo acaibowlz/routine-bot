@@ -34,7 +34,8 @@ def format_all_events_summary(events: list[EventData]) -> FlexMessage:
             contents.append(flex_text_normal_line(f"🗓 上次是：{time_diff}"))
             if event.reminder_enabled:
                 if event.next_due_at is None:
-                    raise AttributeError(f"The event '{event.event_name}' does not have a valid next due date.")
+                    raise AttributeError(f"Event does not have a valid next due date: {event.event_id}")
+
                 contents.append(
                     flex_text_normal_line(
                         f"🔔 下次提醒：{event.next_due_at.astimezone(tz=TZ_TAIPEI).strftime('%Y-%m-%d')}"

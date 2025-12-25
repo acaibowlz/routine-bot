@@ -10,31 +10,30 @@ import routine_bot.db.records as record_db
 import routine_bot.messages as msg
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.steps import FindEventSteps
+from routine_bot.errors import EventNotFoundError, InvalidStepError
 from routine_bot.models import ChatData
 from routine_bot.utils import format_logger_name, validate_event_name
 
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
-    logger.info("Processing find event name entry")
+def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
+    logger.info("Processing event name")
     event_name = text
-
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name entry: {event_name}, error msg={error_msg}")
+        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {error_msg}")
         return msg.error.error([error_msg])
-    event_id = event_db.get_event_id(chat.user_id, event_name, conn)
-    if event_id is None:
-        logger.info(f"Event not found: {event_name}")
+    user_id = chat.user_id
+    event = event_db.get_event_by_name(user_id, event_name, conn)
+    if event is None:
+        logger.info(f"Event not found. User ID: {user_id}, Event Name: {event_name}")
         return msg.error.event_name_not_found(event_name)
 
-    event = event_db.get_event(event_id, conn)
-    assert event is not None, "Event is not suppose to be missing"
-    recent_records = record_db.list_event_recent_records(event_id, conn)
+    recent_records = record_db.list_event_recent_records(event.event_id, conn)
     logger.info("┌── Event Found ────────────────────────────")
     logger.info(f"│ Event Name: {event_name}")
-    logger.info(f"│ Event ID: {event_id}")
+    logger.info(f"│ Event ID: {event.event_id}")
     logger.info(f"│ User: {event.user_id}")
     logger.info(f"│ Reminder: {event.reminder_enabled}")
     logger.info(f"│ Cycle: {event.event_cycle}")
@@ -64,6 +63,6 @@ def create_find_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessag
 
 def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
     if chat.current_step == FindEventSteps.ENTER_NAME:
-        return _process_event_name_entry(text, chat, conn)
+        return _process_event_name(text, chat, conn)
     else:
-        raise AssertionError(f"Unknown step in handle_find_event_chat: {chat.current_step}")
+        raise InvalidStepError(f"Invalid step in handle_find_event_chat: {chat.current_step}")

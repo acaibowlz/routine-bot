@@ -14,7 +14,8 @@ def enter_event_name() -> FlexMessage:
 def comfirm_event_deletion(event: EventData) -> TemplateMessage:
     if event.reminder_enabled:
         if event.next_due_at is None:
-            raise AttributeError(f"The event '{event.event_name}' does not have a valid next due date.")
+            raise AttributeError(f"Event does not have a valid next due date: {event.event_id}")
+
         text = (
             f"\n🗓 上次是：{event.last_done_at.strftime('%Y-%m-%d')}\n\n"
             f"🔔 下次提醒：{event.next_due_at.astimezone(tz=TZ_TAIPEI).strftime('%Y-%m-%d')}\n\n"

@@ -13,38 +13,37 @@ import routine_bot.messages as msg
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.options import ConfirmDeletionOptions
 from routine_bot.enums.steps import DeleteEventSteps
+from routine_bot.errors import EventNotFoundError, InvalidStepError
 from routine_bot.models import ChatData
 from routine_bot.utils import format_logger_name, validate_event_name
 
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    logger.info("Process delete event name input")
+def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
+    logger.info("Process event name")
     event_name = text
-
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name input: {event_name}, error msg={error_msg}")
+        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {error_msg}")
         return msg.error.error([error_msg])
-    event_id = event_db.get_event_id(chat.user_id, event_name, conn)
-    if event_id is None:
-        logger.info(f"Event name not found: {event_name}")
+    user_id = chat.user_id
+    event = event_db.get_event_by_name(user_id, event_name, conn)
+    if event is None:
+        logger.info(f"Event not found. User ID: {user_id}, Event Name: {event_name}")
         return msg.error.event_name_not_found(event_name)
 
-    event = event_db.get_event(event_id, conn)
-    assert event is not None, "Event is not suppose to be missing"
     chat_db.update_chat_current_step(chat, DeleteEventSteps.CONFIRM_DELETION.value, conn, logger)
-    chat_db.update_chat_payload(chat=chat, data={"event_id": event_id}, conn=conn, logger=logger)
+    chat_db.update_chat_payload(chat=chat, new_data={"event_id": event.event_id}, conn=conn, logger=logger)
     return msg.events.delete.comfirm_event_deletion(event)
 
 
 def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     logger.info("Processing delete event confirm deletion")
     event_id = chat.payload["event_id"]
-    event = event_db.get_event(event_id, conn)
+    event = event_db.get_event_by_id(event_id, conn)
     if event is None:
-        raise ValueError(f"Event not found: {event_id}")
+        raise EventNotFoundError(f"Event not found: {event_id}")
 
     if text == ConfirmDeletionOptions.DELETE:
         logger.info("┌── Deleting Event ─────────────────────────")
@@ -85,8 +84,8 @@ def create_delete_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMess
 
 def handle_delete_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     if chat.current_step == DeleteEventSteps.ENTER_NAME:
-        return _process_event_name_entry(text, chat, conn)
+        return _process_event_name(text, chat, conn)
     elif chat.current_step == DeleteEventSteps.CONFIRM_DELETION:
         return _process_confirm_deletion(text, chat, conn)
     else:
-        raise AssertionError(f"Unknown step in handle_delete_event_chat: {chat.current_step}")
+        raise InvalidStepError(f"Invalid step in handle_delete_event_chat: {chat.current_step}")

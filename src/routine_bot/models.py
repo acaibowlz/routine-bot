@@ -18,12 +18,12 @@ class UserData:
         return self.premium_until is not None and self.premium_until > datetime.now(TZ_TAIPEI)
 
     @property
-    def reached_free_plan_max_events(self) -> bool:
+    def exceeded_free_plan_max_events(self) -> bool:
         return self.event_count > FREE_PLAN_MAX_EVENTS
 
     @property
     def is_limited(self) -> bool:
-        return self.reached_free_plan_max_events and not self.has_premium_access
+        return self.exceeded_free_plan_max_events and not self.has_premium_access
 
 
 @dataclass

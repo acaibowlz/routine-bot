@@ -14,35 +14,32 @@ from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.options import EditEventOptions, ToggleReminderOptions
 from routine_bot.enums.steps import EditEventSteps
 from routine_bot.enums.units import CycleUnit
+from routine_bot.errors import EventNotFoundError, InvalidStepError
 from routine_bot.models import ChatData
 from routine_bot.utils import format_logger_name, parse_event_cycle, validate_event_name
 
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    logger.info("Processing edit event name input")
+def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
+    logger.info("Processing event name")
     event_name = text
-
-    # validate event name
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name input: {event_name}")
-        logger.debug(f"Error msg={error_msg}")
+        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {error_msg}")
         return msg.error.error([error_msg])
-    event_id = event_db.get_event_id(chat.user_id, event_name, conn)
-    if event_id is None:
-        logger.info(f"Event not found: {event_name}")
+    user_id = chat.user_id
+    event = event_db.get_event_by_name(user_id, event_name, conn)
+    if event is None:
+        logger.info(f"Event not found. User ID: {user_id}, Event Name: {event_name}")
         return msg.error.event_name_not_found(event_name)
 
-    event = event_db.get_event(event_id, conn)
-    assert event is not None, "Event is not suppose to be missing"
     chat_db.update_chat_current_step(chat, EditEventSteps.SELECT_OPTION.value, conn, logger)
     chat.payload = chat_db.update_chat_payload(
         chat=chat,
-        data={
+        new_data={
             "event_name": event_name,
-            "event_id": event_id,
+            "event_id": event.event_id,
             "last_done_at": event.last_done_at.isoformat(),
             "reminder_enabled": str(event.reminder_enabled),
             "event_cycle": event.event_cycle if event.event_cycle else "None",
@@ -53,17 +50,23 @@ def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connectio
     return msg.events.edit.select_option(chat.payload)
 
 
-def _prepare_new_event_name_entry(chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
+def _prepare_new_event_name(chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
+    logger.info("Option selected: Edit event name")
     chat_db.update_chat_current_step(chat, EditEventSteps.ENTER_NEW_NAME.value, conn, logger)
     return msg.events.edit.enter_new_event_name(chat.payload)
 
 
 def _prepare_toggle_reminder(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
+    logger.info("Option selected: toggle reminder")
     chat_db.update_chat_current_step(chat, EditEventSteps.TOGGLE_REMINDER.value, conn, logger)
     return msg.events.edit.toggle_reminder(chat.payload)
 
 
-def _prepare_new_event_cycle_entry(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
+def _prepare_new_event_cycle(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
+    logger.info("Option selected: Edit event eycle")
+    if chat.payload["reminder_enabled"] == "False":
+        logger.info("Event cycle cannot be set if reminder is not enabled")
+        return msg.events.edit.event_cycle_requires_reminder_enabled(chat.payload)
     chat_db.update_chat_current_step(chat, EditEventSteps.ENTER_NEW_EVENT_CYCLE.value, conn, logger)
     return msg.events.edit.enter_new_event_cycle(chat.payload)
 
@@ -71,34 +74,31 @@ def _prepare_new_event_cycle_entry(chat: ChatData, conn: psycopg.Connection) -> 
 def _process_selected_edit_option(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     logger.info("Processing selected edit option")
     if text == EditEventOptions.NAME:
-        return _prepare_new_event_name_entry(chat, conn)
+        return _prepare_new_event_name(chat, conn)
     elif text == EditEventOptions.REMINDER:
         return _prepare_toggle_reminder(chat, conn)
     elif text == EditEventOptions.EVENT_CYCLE:
-        if chat.payload["reminder_enabled"] == "False":
-            logger.info("Event cycle cannot be set if reminder is not enabled")
-            return msg.events.edit.event_cycle_requires_reminder_enabled(chat.payload)
-        return _prepare_new_event_cycle_entry(chat, conn)
+        return _prepare_new_event_cycle(chat, conn)
     else:
-        logger.info(f"Invalid edit option input: {text}")
+        logger.info(f"Invalid edit option: {text}")
         return msg.events.edit.invalid_edit_option_entry(chat.payload)
 
 
 def _process_new_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection):
     logger.info("Processing edit event new name entry")
     new_event_name = text
-
-    # validate event name
     error_msg = validate_event_name(new_event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name entry: {new_event_name}, error msg={error_msg}")
+        logger.info(f"Invalid event name. Input: {new_event_name}, Error msg: {error_msg}")
         return msg.error.error([error_msg])
-    if event_db.get_event_id(chat.user_id, new_event_name, conn) is not None:
-        logger.info(f"Duplicated event name entry: {new_event_name}")
+    if event_db.is_event_name_duplicated(chat.user_id, new_event_name, conn):
+        logger.info(f"Duplicated event name: {new_event_name}")
         return msg.error.event_name_duplicated(new_event_name)
 
-    event = event_db.get_event(chat.payload["event_id"], conn)
-    assert event is not None, "Event is not suppose to be missing"
+    event_id = chat.payload["event_id"]
+    event = event_db.get_event_by_id(event_id, conn)
+    if event is None:
+        raise EventNotFoundError(f"Event not found: {event_id}")
     logger.info("┌── Editing Event ──────────────────────────")
     logger.info(f"│ Event Name: {event.event_name}")
     logger.info(f"│ Event ID: {event.event_id}")
@@ -109,7 +109,7 @@ def _process_new_event_name_entry(text: str, chat: ChatData, conn: psycopg.Conne
 
     chat_db.finish_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
-        chat=chat, data={"new_event_name": new_event_name}, conn=conn, logger=logger
+        chat=chat, new_data={"new_event_name": new_event_name}, conn=conn, logger=logger
     )
     return msg.events.edit.edit_event_name_succeeded(chat.payload)
 
@@ -129,12 +129,14 @@ def _process_toggle_reminder(text: str, chat: ChatData, conn: psycopg.Connection
             logger.info("Event cycle is missing, proceed to set event cycle")
             chat_db.update_chat_current_step(chat, EditEventSteps.ENTER_NEW_EVENT_CYCLE.value, conn, logger)
             chat.payload = chat_db.update_chat_payload(
-                chat=chat, data={"proceed_from_toggle_reminder": str(True)}, conn=conn, logger=logger
+                chat=chat, new_data={"proceed_from_toggle_reminder": str(True)}, conn=conn, logger=logger
             )
             return msg.events.edit.proceed_to_set_event_cycle(chat.payload)
 
-        event = event_db.get_event(chat.payload["event_id"], conn)
-        assert event is not None, "Event is not suppose to be missing"
+        event_id = chat.payload["event_id"]
+        event = event_db.get_event_by_id(event_id, conn)
+        if event is None:
+            raise EventNotFoundError(f"Event not found: {event_id}")
         logger.info("┌── Editing Event ──────────────────────────")
         logger.info(f"│ Event Name: {event.event_name}")
         logger.info(f"│ Event ID: {event.event_id}")
@@ -146,14 +148,12 @@ def _process_toggle_reminder(text: str, chat: ChatData, conn: psycopg.Connection
         return msg.events.edit.toggle_reminder_succeeded(chat.payload)
 
     else:
-        logger.info(f"Invalid edit option input: {text}")
+        logger.info(f"Invalid toggle reminder option: {text}")
         return msg.events.edit.invalid_toggle_reminder_entry(chat.payload)
 
 
-def _process_new_event_cycle_entry(
-    text: str, chat: ChatData, conn: psycopg.Connection
-) -> TemplateMessage | FlexMessage:
-    logger.info("Processing edit event new event cycle entry")
+def _process_new_event_cycle(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
+    logger.info("Processing edit event new event cycle")
     if text.lower() == "example":
         logger.info("Showing event cycle example")
         return msg.info.event_cycle_example()
@@ -162,11 +162,13 @@ def _process_new_event_cycle_entry(
     text = text.rstrip("s")
     increment, unit = parse_event_cycle(text)
     if increment is None or unit is None:
-        logger.info(f"Invalid event cycle entry: {text}")
+        logger.info(f"Invalid event cycle: {text}")
         return msg.events.edit.invalid_event_cycle_entry(chat.payload)
 
-    event = event_db.get_event(chat.payload["event_id"], conn)
-    assert event is not None, "Event is not suppose to be missing"
+    event_id = chat.payload["event_id"]
+    event = event_db.get_event_by_id(event_id, conn)
+    if event is None:
+        raise EventNotFoundError(f"Event not found: {event_id}")
     event_id = event.event_id
     last_done_at = event.last_done_at
     offset = relativedelta()
@@ -196,7 +198,7 @@ def _process_new_event_cycle_entry(
     chat_db.finish_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
         chat=chat,
-        data={"new_event_cycle": new_event_cycle, "next_due_at": next_due_at.isoformat()},
+        new_data={"new_event_cycle": new_event_cycle, "next_due_at": next_due_at.isoformat()},
         conn=conn,
         logger=logger,
     )
@@ -223,7 +225,7 @@ def create_edit_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessag
 
 def handle_edit_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     if chat.current_step == EditEventSteps.ENTER_NAME:
-        return _process_event_name_entry(text, chat, conn)
+        return _process_event_name(text, chat, conn)
     elif chat.current_step == EditEventSteps.SELECT_OPTION:
         return _process_selected_edit_option(text, chat, conn)
     elif chat.current_step == EditEventSteps.ENTER_NEW_NAME:
@@ -231,6 +233,6 @@ def handle_edit_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) 
     elif chat.current_step == EditEventSteps.TOGGLE_REMINDER:
         return _process_toggle_reminder(text, chat, conn)
     elif chat.current_step == EditEventSteps.ENTER_NEW_EVENT_CYCLE:
-        return _process_new_event_cycle_entry(text, chat, conn)
+        return _process_new_event_cycle(text, chat, conn)
     else:
-        raise AssertionError(f"Unknown step in handle_edit_event_chat: {chat.current_step}")
+        raise InvalidStepError(f"Invalid step in handle_edit_event_chat: {chat.current_step}")

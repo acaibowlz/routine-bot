@@ -3,6 +3,7 @@ from datetime import datetime
 
 import psycopg
 
+from routine_bot.errors import EventNotFoundError
 from routine_bot.models import EventData
 from routine_bot.utils import format_logger_name
 
@@ -41,7 +42,7 @@ def add_event(event: EventData, conn: psycopg.Connection) -> None:
     logger.debug(f"Inserting event: {event.event_id}")
 
 
-def get_event(event_id: str, conn: psycopg.Connection) -> EventData | None:
+def get_event_by_id(event_id: str, conn: psycopg.Connection) -> EventData | None:
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -66,6 +67,31 @@ def get_event(event_id: str, conn: psycopg.Connection) -> EventData | None:
         return EventData(*result)
 
 
+def get_event_by_name(user_id: str, event_name: str, conn: psycopg.Connection) -> EventData | None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                event_id,
+                user_id,
+                event_name,
+                reminder_enabled,
+                event_cycle,
+                last_done_at,
+                next_due_at,
+                share_count,
+                is_active
+            FROM events
+            WHERE user_id = %s AND event_name = %s
+            """,
+            (user_id, event_name),
+        )
+        result = cur.fetchone()
+        if result is None:
+            return None
+        return EventData(*result)
+
+
 def delete_event(event_id: str, conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -75,6 +101,8 @@ def delete_event(event_id: str, conn: psycopg.Connection) -> None:
             """,
             (event_id,),
         )
+        if cur.rowcount == 0:
+            raise EventNotFoundError(f"Event not found: {event_id}")
     logger.debug(f"Deleting event: {event_id}")
 
 
@@ -154,6 +182,8 @@ def set_event_name(event_id: str, event_name: str, conn: psycopg.Connection) -> 
             """,
             (event_name, event_id),
         )
+        if cur.rowcount == 0:
+            raise EventNotFoundError(f"Event not found: {event_id}")
     logger.debug(f"Updating event_name for event: {event_id}")
 
 
@@ -167,6 +197,8 @@ def set_event_reminder_flag(event_id: str, reminder_enabled: bool, conn: psycopg
             """,
             (reminder_enabled, event_id),
         )
+        if cur.rowcount == 0:
+            raise EventNotFoundError(f"Event not found: {event_id}")
     logger.debug(f"Updating reminder_enabled for event: {event_id}")
 
 
@@ -180,6 +212,8 @@ def set_event_cycle(event_id: str, event_cycle: str, conn: psycopg.Connection) -
             """,
             (event_cycle, event_id),
         )
+        if cur.rowcount == 0:
+            raise EventNotFoundError(f"Event not found: {event_id}")
     logger.debug(f"Updating event_cycle for event: {event_id}")
 
 
@@ -193,6 +227,8 @@ def set_event_last_done_at(event_id: str, last_done_at: datetime, conn: psycopg.
             """,
             (last_done_at, event_id),
         )
+        if cur.rowcount == 0:
+            raise EventNotFoundError(f"Event not found: {event_id}")
     logger.debug(f"Updating last_done_at for event: {event_id}")
 
 
@@ -206,6 +242,8 @@ def set_event_next_due_at(event_id: str, next_due_at: datetime, conn: psycopg.Co
             """,
             (next_due_at, event_id),
         )
+        if cur.rowcount == 0:
+            raise EventNotFoundError(f"Event not found: {event_id}")
     logger.debug(f"Updating next_due_at for event: {event_id}")
 
 
@@ -219,6 +257,8 @@ def set_event_activeness(event_id: str, to: bool, conn: psycopg.Connection) -> N
             """,
             (to, event_id),
         )
+        if cur.rowcount == 0:
+            raise EventNotFoundError(f"Event not found: {event_id}")
     logger.debug(f"Updating is_active for event: {event_id}")
 
 
@@ -237,3 +277,28 @@ def set_all_events_activeness_by_user(user_id: str, to: bool, conn: psycopg.Conn
         result = cur.fetchall()
         for row in result:
             logger.debug(f"Updating is_active for event: {row[0]}")
+
+
+def increment_event_share_count(event_id: str, by: int, conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE events
+            SET share_count = share_count + %s
+            WHERE event_id = %s
+            RETURNING share_count
+            """,
+            (by, event_id),
+        )
+        result = cur.fetchone()
+        if result is None:
+            raise EventNotFoundError(f"Event not found: {event_id}")
+        logger.debug(f"Updating share_count for event: {event_id}")
+        logger.debug(f"Current share_count={result[0]}")
+
+
+def is_event_name_duplicated(user_id: str, event_name: str, conn: psycopg.Connection) -> bool:
+    event_id = get_event_id(user_id, event_name, conn)
+    if event_id is None:
+        return False
+    return True

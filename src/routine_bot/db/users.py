@@ -3,6 +3,7 @@ from datetime import time
 
 import psycopg
 
+from routine_bot.errors import UserNotFoundError
 from routine_bot.models import UserData
 from routine_bot.utils import format_logger_name
 
@@ -92,7 +93,8 @@ def increment_user_event_count(user_id: str, by: int, conn: psycopg.Connection) 
             (by, user_id),
         )
         result = cur.fetchone()
-        assert result is not None, "User is not suppose to be missing"
+        if result is None:
+            raise UserNotFoundError(f"User not found: {user_id}")
         logger.debug(f"Updating event_count for user: {user_id}")
         logger.debug(f"Current event_count={result[0]}")
 
@@ -107,6 +109,8 @@ def set_user_activeness(user_id: str, to: bool, conn: psycopg.Connection) -> Non
             """,
             (to, user_id),
         )
+        if cur.rowcount == 0:
+            raise UserNotFoundError(f"User not found: {user_id}")
     logger.debug(f"Updating is_active for user: {user_id}")
 
 
@@ -120,4 +124,15 @@ def set_user_time_slot(user_id: str, time_slot: time, conn: psycopg.Connection) 
             """,
             (time_slot, user_id),
         )
+        if cur.rowcount == 0:
+            raise UserNotFoundError(f"User not found: {user_id}")
     logger.debug(f"Updating time_slot for user: {user_id}")
+
+
+def is_user_limited(user_id: str, conn: psycopg.Connection) -> bool:
+    user = get_user(user_id, conn)
+    if user is None:
+        raise UserNotFoundError(f"User not found: {user_id}")
+    if user.is_limited:
+        return True
+    return False

@@ -43,7 +43,7 @@ def list_event_recent_records(event_id: str, conn: psycopg.Connection, limit: in
         return [row[0] for row in result]
 
 
-def delete_records_by_event_id(event_id: str, conn: psycopg.Connection) -> list[str]:
+def delete_records_by_event_id(event_id: str, conn: psycopg.Connection) -> None:
     logger.debug(f"Deleting records by event_id: {event_id}")
     with conn.cursor() as cur:
         cur.execute(
@@ -65,4 +65,3 @@ def delete_records_by_event_id(event_id: str, conn: psycopg.Connection) -> list[
             """,
             (event_id,),
         )
-        return record_ids
