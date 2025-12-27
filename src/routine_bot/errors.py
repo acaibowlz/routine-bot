@@ -12,3 +12,11 @@ class ChatNotFoundError(Exception):
 
 class InvalidStepError(Exception):
     pass
+
+
+class InvalidChatTypeError(Exception):
+    pass
+
+
+class InvalidCommandError(Exception):
+    pass

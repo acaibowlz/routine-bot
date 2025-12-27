@@ -9,6 +9,7 @@ class ChatType(StrEnum):
     EDIT_EVENT = auto()
     SHARE_EVENT = auto()
     RECEIVE_EVENT = auto()
+    REVOKE_EVENT = auto()
     USER_SETTINGS = auto()
 
 

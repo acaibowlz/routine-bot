@@ -4,5 +4,6 @@ from . import edit as edit
 from . import find as find
 from . import new as new
 from . import receive as receive
+from . import revoke as revoke
 from . import share as share
 from . import view_all as view_all

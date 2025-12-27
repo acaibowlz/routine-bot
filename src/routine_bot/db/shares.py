@@ -107,3 +107,17 @@ def delete_shares_by_event_id(event_id: str, conn: psycopg.Connection):
             (event_id,),
         )
         return share_ids
+
+
+def list_recipients_by_event(event_id: str, conn: psycopg.Connection) -> list[str]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT recipient_id
+            FROM shares
+            WHERE event_id = %s
+            """,
+            (event_id,),
+        )
+        result = cur.fetchall()
+        return [row[0] for row in result]

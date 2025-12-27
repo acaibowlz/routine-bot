@@ -35,7 +35,12 @@ class ShareEventSteps(StrEnum):
 
 
 class ReceiveEventSteps(StrEnum):
+    ENTER_CODE = auto()
+
+
+class RevokeEventSteps(StrEnum):
     ENTER_NAME = auto()
+    SELECT_RECIPIENT = auto()
 
 
 class UserSettingsSteps(StrEnum):

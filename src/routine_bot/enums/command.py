@@ -10,6 +10,7 @@ class Command(StrEnum):
     EDIT = "/edit"
     SHARE = "/share"
     RECEIVE = "/receive"
+    REVOKE = "/revoke"
     ABORT = "/abort"
     SETTINGS = "/settings"
     MENU = "/menu"
