@@ -25,8 +25,8 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     event_name = text
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {error_msg}")
-        return msg.error.error([error_msg])
+        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {''.join(error_msg)}")
+        return msg.error.error(error_msg)
     user_id = chat.user_id
     event = event_db.get_event_by_name(user_id, event_name, conn)
     if event is None:

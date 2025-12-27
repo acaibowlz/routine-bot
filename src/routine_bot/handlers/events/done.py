@@ -25,8 +25,8 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     event_name = text
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {error_msg}")
-        return msg.error.error([error_msg])
+        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {''.join(error_msg)}")
+        return msg.error.error(error_msg)
     event_id = event_db.get_event_id(chat.user_id, event_name, conn)
     if event_id is None:
         logger.info(f"Event not found: {event_name}")
@@ -34,7 +34,7 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
 
     chat_db.set_chat_current_step(chat.chat_id, DoneEventSteps.SELECT_DONE_DATE.value, conn)
     chat.payload = chat_db.update_chat_payload(
-        chat_id=chat.chat_id,
+        chat=chat,
         new_data={"event_id": event_id, "event_name": event_name, "chat_id": chat.chat_id},
         conn=conn,
         logger=logger,
@@ -83,7 +83,7 @@ def process_selected_done_date(
 
     chat_db.finish_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
-        chat_id=chat.chat_id,
+        chat=chat,
         new_data={"done_at": done_at.isoformat()},
         conn=conn,
         logger=logger,

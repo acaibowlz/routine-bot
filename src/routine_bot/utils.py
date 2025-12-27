@@ -59,19 +59,19 @@ def sanitize_msg(text: str) -> str:
     return text
 
 
-def validate_event_name(event_name: str) -> str | None:
+def validate_event_name(event_name: str) -> list[str] | None:
     """
     Return None if the event name is valid, or the error message will be returned.
     """
     if len(event_name) < 2:
-        return "⚠️ 名字太短啦～\n至少要有 2 個字喔！\n試試看長一點的名字吧🍞"
+        return ["⚠️ 這個名字有點太短了～至少要有 2 個字喔！", "試試看長一點的名字吧 🍞"]
     if len(event_name) > 10:
-        return "⚠️ 這個名字有點太長了～\n最多只能 10 個字喔！\n試試看短一點的名字吧🍞"
+        return ["⚠️ 這個名字有點太長了～最多只能 10 個字喔！", "試試看短一點的名字吧 🍞"]
     invalid_chars = re.findall(r"[^\u4e00-\u9fffA-Za-z0-9 _-]", event_name)
     if invalid_chars:
         invalid_chars = list(dict.fromkeys(invalid_chars))
         wrapped = "、".join([f"「{ch}」" for ch in invalid_chars])
-        return f"⚠️ 我不太認得這些字：{wrapped}\n換成一般文字或符號再試試吧🍞"
+        return [f"⚠️ 我不太認得這些字：{wrapped}", "換成一般文字或符號再試試吧 🍞"]
     return None
 
 

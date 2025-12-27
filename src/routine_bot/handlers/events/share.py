@@ -16,18 +16,18 @@ from routine_bot.utils import format_logger_name, validate_event_name
 logger = logging.getLogger(format_logger_name(__name__))
 
 
-def _process_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    logger.info("Processing event name entry")
+def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
+    logger.info("Processing event name")
     event_name = text
 
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name entry: {event_name}, error msg={error_msg}")
-        return msg.error.error([error_msg])
+        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {''.join(error_msg)}")
+        return msg.error.error(error_msg)
     user_id = chat.user_id
     event = event_db.get_event_by_name(user_id, event_name, conn)
     if event is None:
-        logger.info(f"Event not found: {event_name}")
+        logger.info(f"Event not found. User ID: {user_id}, Event Name: {event_name}")
         return msg.error.event_name_not_found(event_name)
     chat.payload = chat_db.update_chat_payload(chat=chat, new_data={"event_name": event_name}, conn=conn, logger=logger)
 
@@ -66,6 +66,6 @@ def create_share_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessa
 
 def handle_share_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     if chat.current_step == ShareEventSteps.ENTER_NAME:
-        return _process_event_name_entry(text, chat, conn)
+        return _process_event_name(text, chat, conn)
     else:
-        raise InvalidStepError(f"invalid step in handle_share_event_chat: {chat.current_step}")
+        raise InvalidStepError(f"Invalid step in handle_share_event_chat: {chat.current_step}")

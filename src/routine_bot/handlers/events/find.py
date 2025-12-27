@@ -10,7 +10,7 @@ import routine_bot.db.records as record_db
 import routine_bot.messages as msg
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.steps import FindEventSteps
-from routine_bot.errors import EventNotFoundError, InvalidStepError
+from routine_bot.errors import InvalidStepError
 from routine_bot.models import ChatData
 from routine_bot.utils import format_logger_name, validate_event_name
 
@@ -22,8 +22,8 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     event_name = text
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {error_msg}")
-        return msg.error.error([error_msg])
+        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {''.join(error_msg)}")
+        return msg.error.error(error_msg)
     user_id = chat.user_id
     event = event_db.get_event_by_name(user_id, event_name, conn)
     if event is None:

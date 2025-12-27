@@ -26,8 +26,8 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     event_name = text
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {error_msg}")
-        return msg.error.error([error_msg])
+        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {''.join(error_msg)}")
+        return msg.error.error(error_msg)
     user_id = chat.user_id
     event = event_db.get_event_by_name(user_id, event_name, conn)
     if event is None:
@@ -81,16 +81,16 @@ def _process_selected_edit_option(text: str, chat: ChatData, conn: psycopg.Conne
         return _prepare_new_event_cycle(chat, conn)
     else:
         logger.info(f"Invalid edit option: {text}")
-        return msg.events.edit.invalid_edit_option_entry(chat.payload)
+        return msg.events.edit.invalid_edit_option(chat.payload)
 
 
-def _process_new_event_name_entry(text: str, chat: ChatData, conn: psycopg.Connection):
-    logger.info("Processing edit event new name entry")
+def _process_new_event_name(text: str, chat: ChatData, conn: psycopg.Connection):
+    logger.info("Processing new event name")
     new_event_name = text
     error_msg = validate_event_name(new_event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name. Input: {new_event_name}, Error msg: {error_msg}")
-        return msg.error.error([error_msg])
+        logger.info(f"Invalid event name. Input: {new_event_name}, Error msg: {''.join(error_msg)}")
+        return msg.error.error(error_msg)
     if event_db.is_event_name_duplicated(chat.user_id, new_event_name, conn):
         logger.info(f"Duplicated event name: {new_event_name}")
         return msg.error.event_name_duplicated(new_event_name)
@@ -115,7 +115,7 @@ def _process_new_event_name_entry(text: str, chat: ChatData, conn: psycopg.Conne
 
 
 def _process_toggle_reminder(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    logger.info("Processing edit event toggle reminder")
+    logger.info("Processing toggle reminder")
     if text == ToggleReminderOptions.CANCEL:
         logger.info("Cancelling toggle reminder")
         chat_db.finish_chat(chat, conn, logger)
@@ -153,7 +153,7 @@ def _process_toggle_reminder(text: str, chat: ChatData, conn: psycopg.Connection
 
 
 def _process_new_event_cycle(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    logger.info("Processing edit event new event cycle")
+    logger.info("Processing new event cycle")
     if text.lower() == "example":
         logger.info("Showing event cycle example")
         return msg.info.event_cycle_example()
@@ -229,7 +229,7 @@ def handle_edit_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) 
     elif chat.current_step == EditEventSteps.SELECT_OPTION:
         return _process_selected_edit_option(text, chat, conn)
     elif chat.current_step == EditEventSteps.ENTER_NEW_NAME:
-        return _process_new_event_name_entry(text, chat, conn)
+        return _process_new_event_name(text, chat, conn)
     elif chat.current_step == EditEventSteps.TOGGLE_REMINDER:
         return _process_toggle_reminder(text, chat, conn)
     elif chat.current_step == EditEventSteps.ENTER_NEW_EVENT_CYCLE:

@@ -17,7 +17,7 @@ from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.options import NewEventReminderOptions
 from routine_bot.enums.steps import NewEventSteps
 from routine_bot.enums.units import CycleUnit
-from routine_bot.errors import InvalidStepError, UserNotFoundError
+from routine_bot.errors import InvalidStepError
 from routine_bot.models import ChatData, EventData, RecordData
 from routine_bot.utils import format_logger_name, parse_event_cycle, validate_event_name
 
@@ -29,15 +29,15 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     event_name = text
     error_msg = validate_event_name(event_name)
     if error_msg is not None:
-        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {error_msg}")
-        return msg.error.error([error_msg])
+        logger.info(f"Invalid event name. Input: {event_name}, Error msg: {''.join(error_msg)}")
+        return msg.error.error(error_msg)
     if event_db.is_event_name_duplicated(chat.user_id, event_name, conn):
         logger.info(f"Duplicated event name: {event_name}")
         return msg.error.event_name_duplicated(event_name)
 
     chat_db.update_chat_current_step(chat, NewEventSteps.SELECT_START_DATE.value, conn, logger)
     chat.payload = chat_db.update_chat_payload(
-        chat_id=chat.chat_id,
+        chat=chat,
         new_data={"event_name": event_name, "chat_id": chat.chat_id},
         conn=conn,
         logger=logger,
@@ -60,7 +60,7 @@ def process_selected_start_date(postback: PostbackEvent, chat: ChatData, conn: p
 
     chat_db.update_chat_current_step(chat, NewEventSteps.ENTER_REMINDER_OPTION.value, conn, logger)
     chat.payload = chat_db.update_chat_payload(
-        chat_id=chat.chat_id,
+        chat=chat,
         new_data={"start_date": start_date.isoformat()},
         conn=conn,
         logger=logger,

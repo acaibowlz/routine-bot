@@ -32,7 +32,7 @@ def create_receive_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMes
         chat_id=chat_id,
         user_id=user_id,
         chat_type=ChatType.RECEIVE_EVENT.value,
-        current_step=ReceiveEventSteps.ENTER_NAME.value,
+        current_step=ReceiveEventSteps.ENTER_CODE.value,
         payload={},
         status=ChatStatus.ONGOING.value,
     )

@@ -145,7 +145,7 @@ def edit_event_cycle_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     return msg
 
 
-def invalid_edit_option_entry(chat_payload: dict[str, str]) -> TemplateMessage:
+def invalid_edit_option(chat_payload: dict[str, str]) -> TemplateMessage:
     actions = [
         MessageAction(label="編輯名稱", text=f"{EditEventOptions.NAME.value}"),
         MessageAction(label="編輯提醒設定", text=f"{EditEventOptions.REMINDER.value}"),

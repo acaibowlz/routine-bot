@@ -27,6 +27,7 @@ from routine_bot.constants import DATABASE_URL, LINE_CHANNEL_ACCESS_TOKEN, LINE_
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.command import SUPPORTED_COMMANDS, Command
 from routine_bot.enums.steps import DoneEventSteps, NewEventSteps, UserSettingsSteps
+from routine_bot.errors import ChatNotFoundError, InvalidChatTypeError, InvalidCommandError
 from routine_bot.handlers.events import (
     create_delete_event_chat,
     create_done_event_chat,
@@ -34,6 +35,7 @@ from routine_bot.handlers.events import (
     create_find_event_chat,
     create_new_event_chat,
     create_receive_event_chat,
+    create_revoke_event_chat,
     create_share_event_chat,
     handle_delete_event_chat,
     handle_done_event_chat,
@@ -41,6 +43,7 @@ from routine_bot.handlers.events import (
     handle_find_event_chat,
     handle_new_event_chat,
     handle_receive_event_chat,
+    handle_revoke_event_chat,
     handle_share_event_chat,
     handle_view_all_chat,
     process_selected_done_date,
@@ -61,51 +64,44 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 
 def _handle_command(text: str, user_id: str, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    if text == Command.NEW:
-        return create_new_event_chat(user_id, conn)
-    elif text == Command.FIND:
-        return create_find_event_chat(user_id, conn)
-    elif text == Command.DELETE:
-        return create_delete_event_chat(user_id, conn)
-    elif text == Command.VIEW_ALL:
-        return handle_view_all_chat(user_id, conn)
-    elif text == Command.DONE:
-        return create_done_event_chat(user_id, conn)
-    elif text == Command.EDIT:
-        return create_edit_event_chat(user_id, conn)
-    elif text == Command.SHARE:
-        return create_share_event_chat(user_id, conn)
-    elif text == Command.RECEIVE:
-        return create_receive_event_chat(user_id, conn)
-    elif text == Command.SETTINGS:
-        return create_user_settings_chat(user_id, conn)
-    elif text == Command.MENU:
-        return msg.users.menu.format_menu()
-    elif text == Command.HELP:
-        return msg.users.help.format_help()
-    else:
-        raise RuntimeError(f"Unknown command in _handle_command: {text}")
+    command_handlers = {
+        Command.NEW.value: create_new_event_chat,
+        Command.FIND.value: create_find_event_chat,
+        Command.DELETE.value: create_delete_event_chat,
+        Command.VIEW_ALL.value: handle_view_all_chat,
+        Command.DONE.value: create_done_event_chat,
+        Command.EDIT.value: create_edit_event_chat,
+        Command.SHARE.value: create_share_event_chat,
+        Command.RECEIVE.value: create_receive_event_chat,
+        Command.REVOKE.value: create_revoke_event_chat,
+        Command.SETTINGS.value: create_user_settings_chat,
+        Command.MENU.value: lambda user_id, conn: msg.users.menu.format_menu(),
+        Command.HELP.value: lambda user_id, conn: msg.users.help.format_help(),
+    }
+
+    handler = command_handlers.get(text)
+    if handler:
+        return handler(user_id, conn)
+    raise InvalidCommandError(f"Invalid command in _handle_command: {text}")
 
 
 def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    if chat.chat_type == ChatType.NEW_EVENT:
-        return handle_new_event_chat(text, chat, conn)
-    elif chat.chat_type == ChatType.FIND_EVENT:
-        return handle_find_event_chat(text, chat, conn)
-    elif chat.chat_type == ChatType.DELETE_EVENT:
-        return handle_delete_event_chat(text, chat, conn)
-    elif chat.chat_type == ChatType.DONE_EVENT:
-        return handle_done_event_chat(text, chat, conn)
-    elif chat.chat_type == ChatType.EDIT_EVENT:
-        return handle_edit_event_chat(text, chat, conn)
-    elif chat.chat_type == ChatType.SHARE_EVENT:
-        return handle_share_event_chat(text, chat, conn)
-    elif chat.chat_type == ChatType.RECEIVE_EVENT:
-        return handle_receive_event_chat(text, chat, conn)
-    elif chat.chat_type == ChatType.USER_SETTINGS:
-        return handle_user_settings_chat(text, chat, conn)
-    else:
-        raise RuntimeError(f"Unknown chat type in handle_ongoing_chat: {chat.chat_type}")
+    ongoing_chat_handlers = {
+        ChatType.NEW_EVENT.value: handle_new_event_chat,
+        ChatType.FIND_EVENT.value: handle_find_event_chat,
+        ChatType.DELETE_EVENT.value: handle_delete_event_chat,
+        ChatType.DONE_EVENT.value: handle_done_event_chat,
+        ChatType.EDIT_EVENT.value: handle_edit_event_chat,
+        ChatType.SHARE_EVENT.value: handle_share_event_chat,
+        ChatType.RECEIVE_EVENT.value: handle_receive_event_chat,
+        ChatType.REVOKE_EVENT.value: handle_revoke_event_chat,
+        ChatType.USER_SETTINGS.value: handle_user_settings_chat,
+    }
+
+    handler = ongoing_chat_handlers.get(chat.chat_type)
+    if handler:
+        return handler(text, chat, conn)
+    raise InvalidChatTypeError(f"Invalid chat type in handle_ongoing_chat: {chat.chat_type}")
 
 
 def _get_reply_message(text: str, user_id: str) -> TextMessage | TemplateMessage | FlexMessage:
@@ -118,13 +114,13 @@ def _get_reply_message(text: str, user_id: str) -> TextMessage | TemplateMessage
                 return msg.abort.no_ongoing_chat()
             if not text.startswith("/"):
                 return msg.users.greeting.random()
-            if text.split(" ", maxsplit=1)[0] not in SUPPORTED_COMMANDS:
+            if text not in SUPPORTED_COMMANDS:
                 return msg.error.unrecognized_command()
             return _handle_command(text, user_id, conn)
 
         chat = chat_db.get_chat(ongoing_chat_id, conn)
         if chat is None:
-            raise RuntimeError(f"Chat not found: {ongoing_chat_id}")
+            raise ChatNotFoundError(f"Chat not found: {ongoing_chat_id}")
         logger.debug(f"Ongoing chat found: {chat.chat_id}")
         logger.debug(f"Chat type: {chat.chat_type}")
         logger.debug(f"Current step: {chat.current_step}")
@@ -188,20 +184,22 @@ def handle_user_blocked(unfollow_event: UnfollowEvent) -> None:
 def handle_postback(postback_event: PostbackEvent) -> None:
     logger.debug(f"Postback data: {postback_event.postback.data}")
     logger.debug(f"Postback params: {postback_event.postback.params}")
+
     chat_id = postback_event.postback.data
     with psycopg.connect(conninfo=DATABASE_URL) as conn:
         chat = chat_db.get_chat(chat_id, conn)
         if chat is None:
-            raise ValueError(f"Chat not found: {chat_id}")
-        # only proceed if status and current step matches
-        if chat.chat_type == ChatType.NEW_EVENT and chat.current_step == NewEventSteps.SELECT_START_DATE:
-            reply_msg = process_selected_start_date(postback_event, chat, conn)
-        elif chat.chat_type == ChatType.USER_SETTINGS and chat.current_step == UserSettingsSteps.SELECT_NEW_TIME_SLOT:
-            reply_msg = process_new_time_slot_selection(postback_event, chat, conn)
-        elif chat.chat_type == ChatType.DONE_EVENT and chat.current_step == DoneEventSteps.SELECT_DONE_DATE:
-            reply_msg = process_selected_done_date(postback_event, chat, conn)
-        else:
+            raise ChatNotFoundError(f"Chat not found: {chat_id}")
+
+        postback_handlers = {
+            (ChatType.NEW_EVENT, NewEventSteps.SELECT_START_DATE): process_selected_start_date,
+            (ChatType.USER_SETTINGS, UserSettingsSteps.SELECT_NEW_TIME_SLOT): process_new_time_slot_selection,
+            (ChatType.DONE_EVENT, DoneEventSteps.SELECT_DONE_DATE): process_selected_done_date,
+        }
+        handler = postback_handlers.get((chat.chat_type, chat.current_step))
+        if not handler:
             return None
+        reply_msg = handler(postback_event, chat, conn)
 
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
