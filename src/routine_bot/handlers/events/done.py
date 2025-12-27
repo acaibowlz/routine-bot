@@ -81,7 +81,7 @@ def process_selected_done_date(
         logger.info("Updating event's last done date: The new done date is more recent")
         event_db.set_event_last_done_at(event_id, done_at, conn)
 
-    chat_db.finish_chat(chat, conn, logger)
+    chat_db.finalize_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
         chat=chat,
         new_data={"done_at": done_at.isoformat()},
@@ -108,10 +108,13 @@ def create_done_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessag
 
 
 def handle_done_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    if chat.current_step == DoneEventSteps.ENTER_NAME:
-        return _process_event_name(text, chat, conn)
-    elif chat.current_step == DoneEventSteps.SELECT_DONE_DATE:
-        logger.info("Text input is not expected at current step")
-        return msg.events.done.invalid_input_for_done_at(chat.payload)
-    else:
-        raise InvalidStepError(f"Invalid step in handle_update_done_at_chat: {chat.current_step}")
+    handlers = {
+        DoneEventSteps.ENTER_NAME.value: _process_event_name,
+        DoneEventSteps.SELECT_DONE_DATE.value: lambda text, chat, conn: msg.events.done.invalid_text_input(
+            chat.payload
+        ),
+    }
+    handler = handlers.get(chat.current_step)
+    if handler:
+        return handler(text, chat, conn)
+    raise InvalidStepError(f"Invalid step in handle_update_done_at_chat: {chat.current_step}")

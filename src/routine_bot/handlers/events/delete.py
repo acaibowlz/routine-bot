@@ -14,7 +14,7 @@ from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.options import ConfirmDeletionOptions
 from routine_bot.enums.steps import DeleteEventSteps
 from routine_bot.errors import EventNotFoundError, InvalidStepError
-from routine_bot.models import ChatData
+from routine_bot.models import ChatData, EventData
 from routine_bot.utils import format_logger_name, validate_event_name
 
 logger = logging.getLogger(format_logger_name(__name__))
@@ -38,6 +38,26 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     return msg.events.delete.comfirm_event_deletion(event)
 
 
+def _confirm_deletion(event: EventData, chat: ChatData, conn: psycopg.Connection):
+    logger.info("┌── Deleting Event ─────────────────────────")
+    logger.info(f"│ Event Name: {event.event_name}")
+    logger.info(f"│ Event ID: {event.event_id}")
+    logger.info(f"│ User: {event.user_id}")
+    logger.info("└───────────────────────────────────────────")
+    share_db.delete_shares_by_event_id(event.event_id, conn)
+    record_db.delete_records_by_event_id(event.event_id, conn)
+    event_db.delete_event(event.event_id, conn)
+    user_db.increment_user_event_count(event.user_id, -1, conn)
+    chat_db.finalize_chat(chat, conn, logger)
+    return msg.events.delete.succeeded(event.event_name)
+
+
+def _cancel_deletion(event: EventData, chat: ChatData, conn: psycopg.Connection):
+    logger.info("Cancelling deletion")
+    chat_db.finalize_chat(chat, conn, logger)
+    return msg.events.delete.cancelled(event.event_name)
+
+
 def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
     logger.info("Processing delete event confirm deletion")
     event_id = chat.payload["event_id"]
@@ -45,25 +65,12 @@ def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connectio
     if event is None:
         raise EventNotFoundError(f"Event not found: {event_id}")
 
-    if text == ConfirmDeletionOptions.DELETE:
-        logger.info("┌── Deleting Event ─────────────────────────")
-        logger.info(f"│ Event Name: {event.event_name}")
-        logger.info(f"│ Event ID: {event.event_id}")
-        logger.info(f"│ User: {event.user_id}")
-        logger.info("└───────────────────────────────────────────")
-        share_db.delete_shares_by_event_id(event_id, conn)
-        record_db.delete_records_by_event_id(event_id, conn)
-        event_db.delete_event(event_id, conn)
-        user_db.increment_user_event_count(event.user_id, -1, conn)
-        chat_db.finish_chat(chat, conn, logger)
-        return msg.events.delete.succeeded(event.event_name)
-    elif text == ConfirmDeletionOptions.CANCEL:
-        logger.info("Cancelling deletion")
-        chat_db.finish_chat(chat, conn, logger)
-        return msg.events.delete.cancelled(event.event_name)
-    else:
-        logger.info(f"Invalid delete confirmation entry: {text}")
-        return msg.events.delete.invalid_delete_confirmation(event)
+    handlers = {
+        ConfirmDeletionOptions.CANCEL.value: _cancel_deletion,
+        ConfirmDeletionOptions.DELETE.value: _confirm_deletion,
+    }
+    handler = handlers.get(text, lambda event, chat, conn: msg.events.delete.invalid_delete_confirmation(event))
+    return handler(event, chat, conn)
 
 
 def create_delete_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:
@@ -83,9 +90,12 @@ def create_delete_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMess
 
 
 def handle_delete_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    if chat.current_step == DeleteEventSteps.ENTER_NAME:
-        return _process_event_name(text, chat, conn)
-    elif chat.current_step == DeleteEventSteps.CONFIRM_DELETION:
-        return _process_confirm_deletion(text, chat, conn)
+    handlers = {
+        DeleteEventSteps.ENTER_NAME.value: _process_event_name,
+        DeleteEventSteps.CONFIRM_DELETION.value: _process_confirm_deletion,
+    }
+    handler = handlers.get(chat.current_step)
+    if handler:
+        return handler(text, chat, conn)
     else:
         raise InvalidStepError(f"Invalid step in handle_delete_event_chat: {chat.current_step}")

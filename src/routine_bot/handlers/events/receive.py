@@ -12,7 +12,7 @@ import routine_bot.db.shares as share_db
 import routine_bot.messages as msg
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.steps import ReceiveEventSteps
-from routine_bot.errors import EventNotFoundError
+from routine_bot.errors import EventNotFoundError, InvalidStepError
 from routine_bot.models import ChatData, ShareData
 from routine_bot.utils import format_logger_name, get_user_profile
 
@@ -24,23 +24,7 @@ def _extract_event_id(share_code: str) -> str:
     return base64.urlsafe_b64decode(padded.encode()).decode()
 
 
-def create_receive_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:
-    chat_id = str(uuid.uuid4())
-    logger.info("Creating new chat, chat type: receive event")
-    logger.info(f"Chat ID: {chat_id}")
-    chat = ChatData(
-        chat_id=chat_id,
-        user_id=user_id,
-        chat_type=ChatType.RECEIVE_EVENT.value,
-        current_step=ReceiveEventSteps.ENTER_CODE.value,
-        payload={},
-        status=ChatStatus.ONGOING.value,
-    )
-    chat_db.add_chat(chat, conn)
-    return msg.events.receive.enter_share_code()
-
-
-def handle_receive_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
+def _process_share_code(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
     logger.info("Extracting event id from share code")
     share_code = text
     try:
@@ -70,6 +54,30 @@ def handle_receive_event_chat(text: str, chat: ChatData, conn: psycopg.Connectio
     logger.info("└───────────────────────────────────────────")
     share_db.add_share(share, conn)
     event_db.increment_event_share_count(event_id, 1, conn)
-    chat_db.finish_chat(chat, conn, logger)
+    chat_db.finalize_chat(chat, conn, logger)
     owner_profile = get_user_profile(share.owner_id)
     return msg.events.receive.succeeded(event, owner_profile.display_name)
+
+
+def create_receive_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:
+    chat_id = str(uuid.uuid4())
+    logger.info("Creating new chat, chat type: receive event")
+    logger.info(f"Chat ID: {chat_id}")
+    chat = ChatData(
+        chat_id=chat_id,
+        user_id=user_id,
+        chat_type=ChatType.RECEIVE_EVENT.value,
+        current_step=ReceiveEventSteps.ENTER_CODE.value,
+        payload={},
+        status=ChatStatus.ONGOING.value,
+    )
+    chat_db.add_chat(chat, conn)
+    return msg.events.receive.enter_share_code()
+
+
+def handle_receive_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
+    handlers = {ReceiveEventSteps.ENTER_CODE.value: _process_share_code}
+    handler = handlers.get(text)
+    if handler:
+        return handler(text, chat, conn)
+    raise InvalidStepError(f"Invalid step in handle_receive_event_chat: {chat.current_step}")

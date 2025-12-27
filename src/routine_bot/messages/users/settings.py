@@ -61,7 +61,7 @@ def succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     return msg
 
 
-def invalid_input_for_option(chat_payload: dict[str, str]) -> TemplateMessage:
+def invalid_option(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title="⚙️ 使用者設定",
         text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 幫我從下面選一個設定項目吧",
@@ -73,7 +73,7 @@ def invalid_input_for_option(chat_payload: dict[str, str]) -> TemplateMessage:
     return msg
 
 
-def invalid_input_for_time_slot(
+def invalid_text_input(
     chat_payload: dict[str, str],
 ) -> TemplateMessage:
     template = ButtonsTemplate(

@@ -79,7 +79,7 @@ def succeeded_with_reminder(chat_payload: dict[str, str]) -> FlexMessage:
     return FlexMessage(altText=f"🍞 新事項［{chat_payload['event_name']}］已準備就緒", contents=bubble)
 
 
-def invalid_entry_for_start_date(chat_payload: dict[str, str]) -> TemplateMessage:
+def invalid_text_input(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
         text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 幫我用下方按鈕選個日期吧",
@@ -105,7 +105,7 @@ def invalid_start_date_selected_exceeds_today(
     return msg
 
 
-def invalid_entry_for_enable_reminder(chat_payload: dict[str, str]) -> TemplateMessage:
+def invalid_reminder_option(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
         text="\n🗓 ⚠️ 嗯？我不太確定你的意思\n\n✨ 再幫我選一次，要不要開啟提醒呢？",
@@ -120,7 +120,7 @@ def invalid_entry_for_enable_reminder(chat_payload: dict[str, str]) -> TemplateM
     return msg
 
 
-def invalid_entry_for_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
+def invalid_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 新事項［{chat_payload['event_name']}］",
         text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 幫我透過下方按鈕選擇重複週期吧",

@@ -41,7 +41,7 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     logger.info(f"│ Next Due: {event.next_due_at}")
     logger.info(f"│ Recent Records: {len(recent_records)}")
     logger.info("└───────────────────────────────────────────")
-    chat_db.finish_chat(chat, conn, logger)
+    chat_db.finalize_chat(chat, conn, logger)
     return msg.events.find.format_event_summary(event, recent_records)
 
 
@@ -62,7 +62,8 @@ def create_find_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessag
 
 
 def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
-    if chat.current_step == FindEventSteps.ENTER_NAME:
-        return _process_event_name(text, chat, conn)
-    else:
-        raise InvalidStepError(f"Invalid step in handle_find_event_chat: {chat.current_step}")
+    handlers = {FindEventSteps.ENTER_NAME.value: _process_event_name}
+    handler = handlers.get(text)
+    if handler:
+        return handler(text, chat, conn)
+    raise InvalidStepError(f"Invalid step in handle_find_event_chat: {chat.current_step}")

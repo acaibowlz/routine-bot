@@ -64,7 +64,7 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 
 def _handle_command(text: str, user_id: str, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    command_handlers = {
+    handlers = {
         Command.NEW.value: create_new_event_chat,
         Command.FIND.value: create_find_event_chat,
         Command.DELETE.value: create_delete_event_chat,
@@ -79,14 +79,14 @@ def _handle_command(text: str, user_id: str, conn: psycopg.Connection) -> Templa
         Command.HELP.value: lambda user_id, conn: msg.users.help.format_help(),
     }
 
-    handler = command_handlers.get(text)
+    handler = handlers.get(text)
     if handler:
         return handler(user_id, conn)
     raise InvalidCommandError(f"Invalid command in _handle_command: {text}")
 
 
 def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    ongoing_chat_handlers = {
+    handlers = {
         ChatType.NEW_EVENT.value: handle_new_event_chat,
         ChatType.FIND_EVENT.value: handle_find_event_chat,
         ChatType.DELETE_EVENT.value: handle_delete_event_chat,
@@ -98,7 +98,7 @@ def _handle_ongoing_chat(text: str, chat: ChatData, conn: psycopg.Connection) ->
         ChatType.USER_SETTINGS.value: handle_user_settings_chat,
     }
 
-    handler = ongoing_chat_handlers.get(chat.chat_type)
+    handler = handlers.get(chat.chat_type)
     if handler:
         return handler(text, chat, conn)
     raise InvalidChatTypeError(f"Invalid chat type in handle_ongoing_chat: {chat.chat_type}")
@@ -191,12 +191,12 @@ def handle_postback(postback_event: PostbackEvent) -> None:
         if chat is None:
             raise ChatNotFoundError(f"Chat not found: {chat_id}")
 
-        postback_handlers = {
+        handlers = {
             (ChatType.NEW_EVENT, NewEventSteps.SELECT_START_DATE): process_selected_start_date,
             (ChatType.USER_SETTINGS, UserSettingsSteps.SELECT_NEW_TIME_SLOT): process_new_time_slot_selection,
             (ChatType.DONE_EVENT, DoneEventSteps.SELECT_DONE_DATE): process_selected_done_date,
         }
-        handler = postback_handlers.get((chat.chat_type, chat.current_step))
+        handler = handlers.get((chat.chat_type, chat.current_step))
         if not handler:
             return None
         reply_msg = handler(postback_event, chat, conn)

@@ -4,6 +4,7 @@ import psycopg
 from psycopg.types.json import Json
 
 from routine_bot.enums.chat import ChatStatus
+from routine_bot.enums.steps import BaseSteps
 from routine_bot.errors import ChatNotFoundError
 from routine_bot.models import ChatData
 from routine_bot.utils import format_logger_name
@@ -132,7 +133,7 @@ def update_chat_status(chat: ChatData, new_status: str, conn: psycopg.Connection
     set_chat_status(chat.chat_id, new_status, conn)
 
 
-def finish_chat(chat: ChatData, conn: psycopg.Connection, logger: logging.Logger) -> None:
-    logger.info(f"Finishing chat: {chat.chat_id}")
-    update_chat_current_step(chat, None, conn, logger)
+def finalize_chat(chat: ChatData, conn: psycopg.Connection, logger: logging.Logger) -> None:
+    logger.info(f"Finalizing chat: {chat.chat_id}")
+    update_chat_current_step(chat, BaseSteps.COMPLETED.value, conn, logger)
     update_chat_status(chat, ChatStatus.COMPLETED.value, conn, logger)

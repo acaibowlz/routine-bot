@@ -33,15 +33,15 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
 
     if not event.reminder_enabled:
         logger.info("Failed to share event: Event did not enable reminder")
-        chat_db.finish_chat(chat, conn, logger)
+        chat_db.finalize_chat(chat, conn, logger)
         return msg.events.share.invalid_event_must_enable_reminder(chat.payload)
 
     if event.share_count >= 4:
         logger.info("Failed to share event: Event has reached max share count")
-        chat_db.finish_chat(chat, conn, logger)
+        chat_db.finalize_chat(chat, conn, logger)
         return msg.events.share.reached_max_share_count(chat.payload)
 
-    chat_db.finish_chat(chat, conn, logger)
+    chat_db.finalize_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
         chat=chat, new_data={"event_id": event.event_id}, conn=conn, logger=logger
     )
@@ -65,7 +65,8 @@ def create_share_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessa
 
 
 def handle_share_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
-    if chat.current_step == ShareEventSteps.ENTER_NAME:
-        return _process_event_name(text, chat, conn)
-    else:
-        raise InvalidStepError(f"Invalid step in handle_share_event_chat: {chat.current_step}")
+    handlers = {ShareEventSteps.ENTER_NAME.value: _process_event_name}
+    handler = handlers.get(text)
+    if handler:
+        return handler(text, chat, conn)
+    raise InvalidStepError(f"Invalid step in handle_share_event_chat: {chat.current_step}")

@@ -31,7 +31,7 @@ class ChatData:
     chat_id: str
     user_id: str
     chat_type: str
-    current_step: str | None
+    current_step: str
     payload: dict[str, str]
     status: str
 

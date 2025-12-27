@@ -22,11 +22,9 @@ logger = logging.getLogger(format_logger_name(__name__))
 
 def _process_selected_option(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
     logger.info("Processing user settings option input")
-    if text == UserSettingsOptions.TIME_SLOT:
-        return _prepare_new_time_slot_selection(chat, conn)
-    else:
-        logger.info(f"Invalid user settings option: {text}")
-        return msg.users.settings.invalid_input_for_option(chat.payload)
+    handlers = {UserSettingsOptions.TIME_SLOT.value: _prepare_new_time_slot_selection}
+    handler = handlers.get(text, lambda chat, conn: msg.users.settings.invalid_option(chat.payload))
+    return handler(chat, conn)
 
 
 def _prepare_new_time_slot_selection(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
@@ -59,7 +57,7 @@ def process_new_time_slot_selection(
         time_slot = datetime.strptime(time_slot, "%H:%M").time()
         logger.info(f"New notification slot: {time_slot}")
         user_db.set_user_time_slot(chat.user_id, time_slot, conn)
-        chat_db.finish_chat(chat, conn, logger)
+        chat_db.finalize_chat(chat, conn, logger)
         chat.payload = chat_db.update_chat_payload(
             chat=chat, new_data={"new_slot": time_slot.strftime("%H:%M")}, conn=conn, logger=logger
         )
@@ -83,9 +81,13 @@ def create_user_settings_chat(user_id: str, conn: psycopg.Connection) -> Templat
 
 
 def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
-    if chat.current_step == UserSettingsSteps.SELECT_OPTION:
-        return _process_selected_option(text, chat, conn)
-    elif chat.current_step == UserSettingsSteps.SELECT_NEW_TIME_SLOT:
-        return msg.users.settings.invalid_input_for_time_slot(chat.payload)
-    else:
-        raise InvalidStepError(f"Invalid step in handle_user_settings_chat: {chat.current_step}")
+    handlers = {
+        UserSettingsSteps.SELECT_OPTION.value: _process_selected_option,
+        UserSettingsSteps.SELECT_NEW_TIME_SLOT.value: lambda text, chat, conn: msg.users.settings.invalid_text_input(
+            chat.payload
+        ),
+    }
+    handler = handlers.get(text)
+    if handler:
+        return handler(text, chat, conn)
+    raise InvalidStepError(f"Invalid step in handle_user_settings_chat: {chat.current_step}")

@@ -32,7 +32,7 @@ def succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     return msg
 
 
-def invalid_input_for_done_at(chat_payload: dict[str, str]) -> TemplateMessage:
+def invalid_text_input(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 更新［{chat_payload['event_name']}］的完成日期",
         text="\n⚠️ 嗯？我不太確定你的意思\n\n✨ 幫我用下方按鈕選個日期吧",
