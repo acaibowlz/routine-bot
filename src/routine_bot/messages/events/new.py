@@ -13,7 +13,7 @@ from routine_bot.messages.utils import flex_bubble_template
 
 def enter_event_name() -> FlexMessage:
     bubble = flex_bubble_template(title="🍞 新事項", lines=["📝 請輸入要記的事項名稱（2～10 個字）"])
-    return FlexMessage(altText="🍞 輸入新事項的名稱", contents=bubble)
+    return FlexMessage(altText="📝 請輸入新事項的名稱", contents=bubble)
 
 
 def select_start_date(chat_payload: dict[str, str]) -> TemplateMessage:
@@ -132,7 +132,7 @@ def invalid_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
         ],
     )
     msg = TemplateMessage(
-        altText=f"🎯 新事件［{chat_payload['event_name']}］⚠️ 輸入無效，請重新選擇重複週期", template=template
+        altText=f"🍞 新事件［{chat_payload['event_name']}］⚠️ 輸入無效，請重新選擇重複週期", template=template
     )
     return msg
 

@@ -6,7 +6,7 @@ from routine_bot.messages.utils import flex_bubble_template
 
 def enter_event_name() -> FlexMessage:
     bubble = flex_bubble_template(title="🍞 編輯事項", lines=["📝 請輸入欲編輯的事項名稱"])
-    return FlexMessage(altText="🍞 請輸入欲編輯的事項名稱", contents=bubble)
+    return FlexMessage(altText="📝 請輸入欲編輯的事項名稱", contents=bubble)
 
 
 def select_option(chat_payload: dict[str, str]) -> TemplateMessage:
@@ -21,7 +21,7 @@ def select_option(chat_payload: dict[str, str]) -> TemplateMessage:
         text="\n📝 想調整哪個部分呢？\n\n✨ 從下方選一個來修改吧～",
         actions=actions,
     )
-    msg = TemplateMessage(altText=f"🍞 編輯［{chat_payload['event_name']}］➡️ 請選擇想調整的項目", template=template)
+    msg = TemplateMessage(altText="📝 請選擇想調整的項目", template=template)
     return msg
 
 
@@ -36,8 +36,10 @@ def enter_new_event_name(chat_payload: dict[str, str]) -> FlexMessage:
 def toggle_reminder(chat_payload: dict[str, str]) -> TemplateMessage:
     if chat_payload["reminder_enabled"] == "True":
         text = "\n🔔 目前的提醒是開啟的喔～\n\n✨ 想要先關閉一下嗎？"
+        alt_text = f"🔕 是否關閉［{chat_payload['event_name']}］的提醒？"
     else:
         text = "\n🔕 目前的提醒是關閉的喔～\n\n✨ 要不要幫你開啟提醒呢？"
+        alt_text = f"🔔 是否開啟［{chat_payload['event_name']}］的提醒？"
 
     template = ButtonsTemplate(
         title=f"🍞 調整［{chat_payload['event_name']}］的提醒",
@@ -47,9 +49,8 @@ def toggle_reminder(chat_payload: dict[str, str]) -> TemplateMessage:
             MessageAction(label="不用，維持現狀", text=ToggleReminderOptions.CANCEL.value),
         ],
     )
-
     msg = TemplateMessage(
-        altText=f"🍞 調整［{chat_payload['event_name']}］的提醒",
+        altText=alt_text,
         template=template,
     )
     return msg
@@ -66,14 +67,14 @@ def enter_new_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
             MessageAction(label="自訂週期（點我看範例）", text="example"),
         ],
     )
-    msg = TemplateMessage(altText=f"🍞 調整［{chat_payload['event_name']}］的重複週期", template=template)
+    msg = TemplateMessage(altText=f"🗓 調整［{chat_payload['event_name']}］的重複週期", template=template)
     return msg
 
 
 def edit_event_name_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     bubble = flex_bubble_template(
-        title="🍞 編輯成功",
-        lines=[f"✅ 已幫你將［{chat_payload['event_name']}］重新命名為［{chat_payload['new_event_name']}］～"],
+        title="✅ 編輯成功",
+        lines=[f"🍞 已幫你將［{chat_payload['event_name']}］重新命名為［{chat_payload['new_event_name']}］～"],
     )
     msg = FlexMessage(
         altText=f"🍞 已將［{chat_payload['event_name']}］重新命名為［{chat_payload['new_event_name']}］",
@@ -95,7 +96,7 @@ def toggle_reminder_cancelled(chat_payload: dict[str, str]) -> FlexMessage:
 def toggle_reminder_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     if chat_payload["reminder_enabled"] == "True":
         lines = [f"🔕 已幫你關閉［{chat_payload['event_name']}］的提醒囉～"]
-        bubble = flex_bubble_template(title="🍞 編輯成功", lines=lines)
+        bubble = flex_bubble_template(title="✅ 編輯成功", lines=lines)
         msg = FlexMessage(altText=f"🍞 已關閉［{chat_payload['event_name']}］的提醒囉", contents=bubble)
         return msg
     else:
@@ -111,7 +112,7 @@ def toggle_reminder_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
                 f"🔔 下次提醒：{chat_payload['next_due_at'][:10]}",
                 f"🔁 重複週期：{chat_payload['event_cycle']}",
             ]
-        bubble = flex_bubble_template(title="🍞 編輯成功", lines=lines)
+        bubble = flex_bubble_template(title="✅ 編輯成功", lines=lines)
         msg = FlexMessage(altText=f"🍞 已開啟［{chat_payload['event_name']}］的提醒囉", contents=bubble)
         return msg
 
@@ -127,15 +128,15 @@ def proceed_to_set_event_cycle(chat_payload: dict[str, str]) -> TemplateMessage:
             MessageAction(label="自訂週期（點我看範例）", text="example"),
         ],
     )
-    msg = TemplateMessage(altText="🍞 請接著設定重複週期", template=template)
+    msg = TemplateMessage(altText="🔁 請接著設定重複週期", template=template)
     return msg
 
 
 def edit_event_cycle_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     bubble = flex_bubble_template(
-        title="🍞 編輯成功",
+        title="✅ 編輯成功",
         lines=[
-            f"✅ 已幫你更新［{chat_payload['event_name']}］的重複週期～",
+            f"🍞 已幫你更新［{chat_payload['event_name']}］的重複週期～",
             f"🗓 上次是：{chat_payload['last_done_at'][:10]}",
             f"🔁 新的重複週期：{chat_payload['event_cycle']}",
             f"🔔 下次提醒：{chat_payload['next_due_at'][:10]}",

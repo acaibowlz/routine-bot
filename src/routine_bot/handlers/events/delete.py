@@ -10,6 +10,7 @@ import routine_bot.db.records as record_db
 import routine_bot.db.shares as share_db
 import routine_bot.db.users as user_db
 import routine_bot.messages as msg
+from routine_bot.constants import TZ_TAIPEI
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.options import ConfirmDeletionOptions
 from routine_bot.enums.steps import DeleteEventSteps
@@ -34,8 +35,16 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
         return msg.error.event_name_not_found(event_name)
 
     chat_db.update_chat_current_step(chat, DeleteEventSteps.CONFIRM_DELETION.value, conn, logger)
-    chat_db.update_chat_payload(chat=chat, new_data={"event_id": event.event_id}, conn=conn, logger=logger)
-    return msg.events.delete.comfirm_event_deletion(event)
+    payload_new_data = {
+        "event_id": event.event_id,
+        "event_name": event.event_name,
+        "last_done_at": event.last_done_at.astimezone(TZ_TAIPEI).strftime("%Y-%m-%d"),
+    }
+    if event.reminder_enabled and event.next_due_at:
+        payload_new_data["reminder_enabled"] = "True"
+        payload_new_data["next_due_at"] = event.next_due_at.astimezone(TZ_TAIPEI).strftime("%Y-%m-%d")
+    chat.payload = chat_db.update_chat_payload(chat=chat, new_data=payload_new_data, conn=conn, logger=logger)
+    return msg.events.delete.comfirm_event_deletion(chat.payload)
 
 
 def _confirm_deletion(event: EventData, chat: ChatData, conn: psycopg.Connection):
@@ -49,13 +58,13 @@ def _confirm_deletion(event: EventData, chat: ChatData, conn: psycopg.Connection
     event_db.delete_event(event.event_id, conn)
     user_db.increment_user_event_count(event.user_id, -1, conn)
     chat_db.finalize_chat(chat, conn, logger)
-    return msg.events.delete.succeeded(event.event_name)
+    return msg.events.delete.succeeded(chat.payload)
 
 
 def _cancel_deletion(event: EventData, chat: ChatData, conn: psycopg.Connection):
     logger.info("Cancelling deletion")
     chat_db.finalize_chat(chat, conn, logger)
-    return msg.events.delete.cancelled(event.event_name)
+    return msg.events.delete.cancelled(chat.payload)
 
 
 def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connection) -> TemplateMessage | FlexMessage:
@@ -69,7 +78,7 @@ def _process_confirm_deletion(text: str, chat: ChatData, conn: psycopg.Connectio
         ConfirmDeletionOptions.CANCEL.value: _cancel_deletion,
         ConfirmDeletionOptions.DELETE.value: _confirm_deletion,
     }
-    handler = handlers.get(text, lambda event, chat, conn: msg.events.delete.invalid_delete_confirmation(event))
+    handler = handlers.get(text, lambda event, chat, conn: msg.events.delete.invalid_delete_confirmation(chat.payload))
     return handler(event, chat, conn)
 
 

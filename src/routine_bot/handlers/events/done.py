@@ -81,13 +81,13 @@ def process_selected_done_date(
         logger.info("Updating event's last done date: The new done date is more recent")
         event_db.set_event_last_done_at(event_id, done_at, conn)
 
-    chat_db.finalize_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
         chat=chat,
         new_data={"done_at": done_at.isoformat()},
         conn=conn,
         logger=logger,
     )
+    chat_db.finalize_chat(chat, conn, logger)
     return msg.events.done.succeeded(chat.payload)
 
 

@@ -108,10 +108,10 @@ def _process_new_event_name(text: str, chat: ChatData, conn: psycopg.Connection)
     logger.info("└───────────────────────────────────────────")
     event_db.set_event_name(event.event_id, new_event_name, conn)
 
-    chat_db.finalize_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
         chat=chat, new_data={"new_event_name": new_event_name}, conn=conn, logger=logger
     )
+    chat_db.finalize_chat(chat, conn, logger)
     return msg.events.edit.edit_event_name_succeeded(chat.payload)
 
 
@@ -201,13 +201,13 @@ def _process_new_event_cycle(text: str, chat: ChatData, conn: psycopg.Connection
         logger.info("Event is proceeded from toggle reminder, setting new reminder flag")
         event_db.set_event_reminder_flag(event_id, True, conn)
 
-    chat_db.finalize_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
         chat=chat,
         new_data={"new_event_cycle": new_event_cycle, "next_due_at": next_due_at.isoformat()},
         conn=conn,
         logger=logger,
     )
+    chat_db.finalize_chat(chat, conn, logger)
     if chat.payload.get("proceed_from_toggle_reminder"):
         return msg.events.edit.toggle_reminder_succeeded(chat.payload)
     return msg.events.edit.edit_event_cycle_succeeded(chat.payload)

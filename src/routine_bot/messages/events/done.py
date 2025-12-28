@@ -10,7 +10,7 @@ from routine_bot.messages.utils import flex_bubble_template
 
 def enter_event_name() -> FlexMessage:
     bubble = flex_bubble_template(title="🍞 新增完成紀錄", lines=["📝 請輸入要新增完成紀錄的事項名稱"])
-    return FlexMessage(altText="🍞 請輸入要新增完成紀錄的事項名稱", contents=bubble)
+    return FlexMessage(altText="📝 請輸入要新增完成紀錄的事項名稱", contents=bubble)
 
 
 def select_done_at(chat_payload: dict[str, str]) -> TemplateMessage:

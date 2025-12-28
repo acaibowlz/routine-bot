@@ -178,13 +178,13 @@ def _process_event_cycle(text: str, chat: ChatData, conn: psycopg.Connection) ->
     record_db.add_record(update, conn)
     user_db.increment_user_event_count(chat.user_id, by=1, conn=conn)
 
-    chat_db.finalize_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
         chat=chat,
         new_data={"event_cycle": event_cycle, "next_due_at": next_due_at.isoformat()},
         conn=conn,
         logger=logger,
     )
+    chat_db.finalize_chat(chat, conn, logger)
     return msg.events.new.succeeded_with_reminder(chat.payload)
 
 

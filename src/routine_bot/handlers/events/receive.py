@@ -10,6 +10,7 @@ import routine_bot.db.chats as chat_db
 import routine_bot.db.events as event_db
 import routine_bot.db.shares as share_db
 import routine_bot.messages as msg
+from routine_bot.constants import TZ_TAIPEI
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.steps import ReceiveEventSteps
 from routine_bot.errors import EventNotFoundError, InvalidStepError
@@ -35,6 +36,16 @@ def _process_share_code(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     event = event_db.get_event_by_id(event_id, conn)
     if event is None:
         raise EventNotFoundError(f"Event not found: {event_id}")
+    if event.event_cycle is None:
+        raise AttributeError(f"Event does not have a valid event cycle: {event.event_id}")
+    if event.next_due_at is None:
+        raise AttributeError(f"Event does not have a valid next due date: {event.event_id}")
+    recipient_id = chat.user_id
+    chat.payload = chat_db.update_chat_payload(
+        chat=chat, new_data={"event_name": event.event_name}, conn=conn, logger=logger
+    )
+    if share_db.is_share_duplicated(event_id, recipient_id, conn):
+        return msg.events.receive.duplicated(chat.payload)
 
     share_id = str(uuid.uuid4())
     share = ShareData(
@@ -42,9 +53,8 @@ def _process_share_code(text: str, chat: ChatData, conn: psycopg.Connection) -> 
         event_id=event_id,
         event_name=event.event_name,
         owner_id=event.user_id,
-        recipient_id=chat.user_id,
+        recipient_id=recipient_id,
     )
-
     logger.info("┌── Creating New Share ────────────────────")
     logger.info(f"│ Share ID: {share_id}")
     logger.info(f"│ Event Name: {event.event_name}")
@@ -54,9 +64,19 @@ def _process_share_code(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     logger.info("└───────────────────────────────────────────")
     share_db.add_share(share, conn)
     event_db.increment_event_share_count(event_id, 1, conn)
-    chat_db.finalize_chat(chat, conn, logger)
     owner_profile = get_user_profile(share.owner_id)
-    return msg.events.receive.succeeded(event, owner_profile.display_name)
+    chat.payload = chat_db.update_chat_payload(
+        chat=chat,
+        new_data={
+            "owner_name": owner_profile.display_name,
+            "next_due_at": event.next_due_at.astimezone(tz=TZ_TAIPEI).strftime("%Y-%m-%d"),
+            "event_cycle": event.event_cycle,
+        },
+        conn=conn,
+        logger=logger,
+    )
+    chat_db.finalize_chat(chat, conn, logger)
+    return msg.events.receive.succeeded(chat.payload)
 
 
 def create_receive_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessage:

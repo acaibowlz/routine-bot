@@ -13,7 +13,7 @@ from routine_bot.messages.utils import flex_bubble_template
 
 def enter_event_name() -> FlexMessage:
     bubble = flex_bubble_template(title="🍞 分享事項", lines=["📝 請輸入要分享的事項名稱"])
-    return FlexMessage(altText="🍞 請輸入要分享的事項名稱", contents=bubble)
+    return FlexMessage(altText="📝 請輸入要分享的事項名稱", contents=bubble)
 
 
 def _create_share_code(text: str) -> str:
@@ -40,7 +40,7 @@ def reached_max_share_count(chat_payload: dict[str, str]) -> FlexMessage:
         lines=["⚠️ 目前這個事項已達分享上限囉", "💭 要不要先整理一下目前的分享對象呢"],
     )
     msg = FlexMessage(
-        altText=f"⚠️ 目前事項［{chat_payload['event_name']}］已達分享上限",
+        altText=f"⚠️ 目前事項［{chat_payload['event_name']}］已達分享上限囉",
         contents=bubble,
     )
     return msg
@@ -51,4 +51,4 @@ def invalid_event_must_enable_reminder(chat_payload: dict[str, str]) -> FlexMess
         title=f"🍞 分享［{chat_payload['event_name']}］",
         lines=["🔕 這個事項沒有設定提醒", "⚠️ 將提醒打開後，就能順利分享囉！"],
     )
-    return FlexMessage(altText=f"🍞 分享［{chat_payload['event_name']}］需要先開啟提醒", contents=bubble)
+    return FlexMessage(altText=f"⚠️ 需要先開啟提醒，才能分享［{chat_payload['event_name']}］", contents=bubble)

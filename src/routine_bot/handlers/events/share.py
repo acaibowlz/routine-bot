@@ -41,10 +41,10 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
         chat_db.finalize_chat(chat, conn, logger)
         return msg.events.share.reached_max_share_count(chat.payload)
 
-    chat_db.finalize_chat(chat, conn, logger)
     chat.payload = chat_db.update_chat_payload(
         chat=chat, new_data={"event_id": event.event_id}, conn=conn, logger=logger
     )
+    chat_db.finalize_chat(chat, conn, logger)
     return msg.events.share.show_recipient_instruction(chat.payload)
 
 

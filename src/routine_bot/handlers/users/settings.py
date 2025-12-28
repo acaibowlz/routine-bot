@@ -57,10 +57,10 @@ def process_new_time_slot_selection(
         time_slot = datetime.strptime(time_slot, "%H:%M").time()
         logger.info(f"New notification slot: {time_slot}")
         user_db.set_user_time_slot(chat.user_id, time_slot, conn)
-        chat_db.finalize_chat(chat, conn, logger)
         chat.payload = chat_db.update_chat_payload(
             chat=chat, new_data={"new_slot": time_slot.strftime("%H:%M")}, conn=conn, logger=logger
         )
+        chat_db.finalize_chat(chat, conn, logger)
         return msg.users.settings.succeeded(chat.payload)
 
 

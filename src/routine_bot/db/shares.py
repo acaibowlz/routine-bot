@@ -121,3 +121,17 @@ def list_recipients_by_event(event_id: str, conn: psycopg.Connection) -> list[st
         )
         result = cur.fetchall()
         return [row[0] for row in result]
+
+
+def is_share_duplicated(event_id: str, recipient_id: str, conn: psycopg.Connection) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1
+            FROM shares
+            WHERE event_id = %s AND recipient_id = %s
+            LIMIT 1
+            """,
+            (event_id, recipient_id),
+        )
+        return cur.fetchone() is not None
