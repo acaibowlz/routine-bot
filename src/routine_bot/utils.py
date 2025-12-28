@@ -35,7 +35,7 @@ def get_user_profile(user_id: str) -> UserProfile:
     headers = {"Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"}
     resp = requests.get(url, headers=headers)
     resp.raise_for_status()
-    print({_camel_to_snake(key): val for key, val in resp.json().items()})
+    logger.debug(f"Retrieved user profile for: {user_id}")
     return UserProfile(**{_camel_to_snake(key): val for key, val in resp.json().items()})
 
 

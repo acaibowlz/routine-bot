@@ -31,6 +31,7 @@ def _process_share_code(text: str, chat: ChatData, conn: psycopg.Connection) -> 
     try:
         event_id = _extract_event_id(share_code)
     except (AttributeError, binascii.Error, UnicodeDecodeError):
+        logger.info(f"Failed to extract share code: {share_code}")
         return msg.events.receive.invalid_share_code()
 
     event = event_db.get_event_by_id(event_id, conn)
@@ -45,6 +46,8 @@ def _process_share_code(text: str, chat: ChatData, conn: psycopg.Connection) -> 
         chat=chat, new_data={"event_name": event.event_name}, conn=conn, logger=logger
     )
     if share_db.is_share_duplicated(event_id, recipient_id, conn):
+        logger.info("Event is already received")
+        chat_db.finalize_chat(chat, conn, logger)
         return msg.events.receive.duplicated(chat.payload)
 
     share_id = str(uuid.uuid4())

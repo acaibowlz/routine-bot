@@ -10,6 +10,10 @@ class ChatNotFoundError(Exception):
     pass
 
 
+class ShareNotFoundError(Exception):
+    pass
+
+
 class InvalidStepError(Exception):
     pass
 

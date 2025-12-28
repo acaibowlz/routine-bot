@@ -26,6 +26,22 @@ def add_share(share: ShareData, conn: psycopg.Connection) -> None:
     logger.debug(f"Inserting share: {share.share_id}")
 
 
+def get_share_by_event(event_id: str, recipient_id: str, conn: psycopg.Connection) -> ShareData | None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT share_id, event_id, event_name, owner_id, recipient_id
+            FROM shares
+            WHERE event_id = %s AND recipient_id = %s
+            """,
+            (event_id, recipient_id),
+        )
+        result = cur.fetchone()
+        if result is None:
+            return None
+        return ShareData(*result)
+
+
 def list_shared_events_by_user(user_id: str, conn: psycopg.Connection) -> list[EventData]:
     with conn.cursor() as cur:
         cur.execute(
@@ -82,6 +98,17 @@ def list_overdue_shared_events_by_user(user_id: str, conn: psycopg.Connection) -
         )
         result = cur.fetchall()
         return [EventData(*row) for row in result]
+
+
+def delete_share(event_id: str, recipient_id: str, conn: psycopg.Connection):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            DELETE FROM shares
+            WHERE event_id = %s AND recipient_id = %s
+            """,
+            (event_id, recipient_id),
+        )
 
 
 def delete_shares_by_event_id(event_id: str, conn: psycopg.Connection):
