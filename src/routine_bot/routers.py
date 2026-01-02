@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from datetime import datetime
@@ -119,7 +120,7 @@ async def send_reminder(request: Request):
         )
 
     return Response(
-        content=str(
+        content=json.dumps(
             {
                 "status": "success",
                 "execution_details": {
