@@ -10,7 +10,7 @@ logger = logging.getLogger(format_logger_name(__name__))
 def _table_exists(cur: psycopg.Cursor, table_name: str) -> bool:
     cur.execute("SELECT to_regclass(%s)", (f"public.{table_name}",))
     result = cur.fetchone()
-    return result is not None
+    return result is not None and result[0] is not None
 
 
 def _create_users_table(cur: psycopg.Cursor) -> None:
@@ -220,6 +220,8 @@ def init_db(conn: psycopg.Connection):
     with conn.cursor() as cur:
         for table, creator_func in table_creators.items():
             if _table_exists(cur, table):
+                logger.info(table)
+
                 continue
             creator_func(cur)
             logger.info(f"Creating table: {table}")
