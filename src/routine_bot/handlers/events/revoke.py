@@ -106,7 +106,7 @@ def handle_revoke_event_chat(text: str, chat: ChatData, conn: psycopg.Connection
         RevokeEventSteps.ENTER_NAME.value: _process_event_name,
         RevokeEventSteps.SELECT_RECIPIENT.value: _process_selected_recipient,
     }
-    handler = handlers.get(text)
+    handler = handlers.get(chat.current_step)
     if handler:
         return handler(text, chat, conn)
     raise InvalidStepError(f"Invalid step in handle_revoke_event_chat: {chat.current_step}")

@@ -100,7 +100,7 @@ def create_receive_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMes
 
 def handle_receive_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
     handlers = {ReceiveEventSteps.ENTER_CODE.value: _process_share_code}
-    handler = handlers.get(text)
+    handler = handlers.get(chat.current_step)
     if handler:
         return handler(text, chat, conn)
     raise InvalidStepError(f"Invalid step in handle_receive_event_chat: {chat.current_step}")

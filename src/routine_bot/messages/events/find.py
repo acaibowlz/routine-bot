@@ -40,8 +40,8 @@ def format_event_summary(chat_payload: dict[str, str]) -> FlexMessage:
     contents.append(flex_text_bold_line("🗓 最近紀錄"))
 
     if chat_payload["recent_records"]:
-        for t in chat_payload["recent_records"]:
-            contents.append(flex_text_normal_line(f"✅ {t.astimezone(tz=TZ_TAIPEI).strftime('%Y-%m-%d')}"))
+        for record in chat_payload["recent_records"]:
+            contents.append(flex_text_normal_line(f"✅ {record}"))
     else:
         contents.append(flex_text_normal_line("👀 目前還沒有任何紀錄"))
 

@@ -214,7 +214,7 @@ def handle_new_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -
         NewEventSteps.ENTER_REMINDER_OPTION.value: _process_selected_reminder_option,
         NewEventSteps.ENTER_EVENT_CYCLE.value: _process_event_cycle,
     }
-    handler = handlers.get(text)
+    handler = handlers.get(chat.current_step)
     if handler:
         return handler(text, chat, conn)
     raise InvalidStepError(f"Invalid step in handle_new_event_chat: {chat.current_step}")

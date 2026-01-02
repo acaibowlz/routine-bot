@@ -82,7 +82,7 @@ def create_find_event_chat(user_id: str, conn: psycopg.Connection) -> FlexMessag
 
 def handle_find_event_chat(text: str, chat: ChatData, conn: psycopg.Connection) -> FlexMessage:
     handlers = {FindEventSteps.ENTER_NAME.value: _process_event_name}
-    handler = handlers.get(text)
+    handler = handlers.get(chat.current_step)
     if handler:
         return handler(text, chat, conn)
     raise InvalidStepError(f"Invalid step in handle_find_event_chat: {chat.current_step}")

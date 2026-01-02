@@ -87,7 +87,7 @@ def handle_user_settings_chat(text: str, chat: ChatData, conn: psycopg.Connectio
             chat.payload
         ),
     }
-    handler = handlers.get(text)
+    handler = handlers.get(chat.current_step)
     if handler:
         return handler(text, chat, conn)
     raise InvalidStepError(f"Invalid step in handle_user_settings_chat: {chat.current_step}")

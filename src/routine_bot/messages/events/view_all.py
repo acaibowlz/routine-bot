@@ -49,13 +49,12 @@ def format_all_events_summary(chat_payload: dict[str, str]) -> FlexMessage:
         FlexSeparator(),
     ]
     for i, event_summary in enumerate(event_summaries):
-        if event_summary["shared"]:
-            contents.append(flex_text_bold_line(f"🍞 {event_summary['event_name']}（共享）"))
-        else:
-            contents.append(flex_text_bold_line(f"🍞 {event_summary['event_name']}"))
+        contents.append(flex_text_bold_line(f"🍞 {event_summary['event_name']}"))
+        if event_summary["owner_name"]:
+            contents.append(flex_text_normal_line(f"👥 來自：{event_summary['owner_name']}"))
         contents.append(flex_text_normal_line(f"🗓 上次是：{event_summary['time_diff']}"))
-        if event_summary["reminder"]:
-            contents.append(flex_text_normal_line(f"🔔 下次提醒：{event_summary['reminder']}"))
+        if event_summary["next_reminder"]:
+            contents.append(flex_text_normal_line(f"🔔 下次提醒：{event_summary['next_reminder']}"))
         else:
             contents.append(flex_text_normal_line("🔕 提醒設定：關閉"))
         if i != len(event_summaries) - 1:
