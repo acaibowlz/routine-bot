@@ -220,8 +220,6 @@ def init_db(conn: psycopg.Connection):
     with conn.cursor() as cur:
         for table, creator_func in table_creators.items():
             if _table_exists(cur, table):
-                logger.info(table)
-
                 continue
             creator_func(cur)
             logger.info(f"Creating table: {table}")

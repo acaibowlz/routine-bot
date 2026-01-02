@@ -77,7 +77,7 @@ async def send_reminder(request: Request):
             line_bot_api = MessagingApi(api_client)
             time_slot = datetime.now(TZ_TAIPEI).replace(minute=0, second=0, microsecond=0).time()
             logger.info(f"Current time slot: {time_slot}")
-            users = user_db.list_active_users_by_notification_slot(time_slot, conn)
+            users = user_db.list_active_users_by_time_slot(time_slot, conn)
             logger.info(f"Users found in this time slot: {len(users)}")
             limited_users = 0
             user_owned_events = 0
