@@ -9,9 +9,10 @@ items = [
     QuickReplyItem(action=MessageAction(label="查詢事項", text=Command.FIND.value)),
     QuickReplyItem(action=MessageAction(label="編輯事項", text=Command.EDIT.value)),
     QuickReplyItem(action=MessageAction(label="刪除事項", text=Command.DELETE.value)),
+    QuickReplyItem(action=MessageAction(label="共享事項", text=Command.SHARE.value)),
+    QuickReplyItem(action=MessageAction(label="取消共享", text=Command.REVOKE.value)),
     QuickReplyItem(action=MessageAction(label="瀏覽所有事項", text=Command.VIEW_ALL.value)),
     QuickReplyItem(action=MessageAction(label="編輯設定", text=Command.SETTINGS.value)),
-    QuickReplyItem(action=MessageAction(label="指令一覽", text=Command.MENU.value)),
     QuickReplyItem(action=MessageAction(label="使用說明", text=Command.HELP.value)),
 ]
 
