@@ -119,20 +119,22 @@ async def send_reminder(request: Request):
         )
 
     return Response(
-        content={
-            "status": "success",
-            "execution_details": {
-                "time_slot": str(time_slot),
-                "execution_start": execution_start.isoformat(),
-                "all_users": len(users),
-                "processed_users": processed_users,
-                "limited_users": limited_users,
-                "all_events_sent": user_owned_events + shared_events,
-                "user_owned_events": user_owned_events,
-                "shared_events": shared_events,
-                "elapsed_time_sec": round(elapsed_time),
-            },
-        },
+        content=str(
+            {
+                "status": "success",
+                "execution_details": {
+                    "time_slot": str(time_slot),
+                    "execution_start": execution_start.isoformat(),
+                    "all_users": len(users),
+                    "processed_users": processed_users,
+                    "limited_users": limited_users,
+                    "all_events_sent": user_owned_events + shared_events,
+                    "user_owned_events": user_owned_events,
+                    "shared_events": shared_events,
+                    "elapsed_time_sec": round(elapsed_time),
+                },
+            }
+        ),
         media_type="application/json",
         status_code=status.HTTP_200_OK,
     )
