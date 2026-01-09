@@ -14,8 +14,8 @@ from routine_bot.constants import TZ_TAIPEI
 from routine_bot.enums.chat import ChatStatus, ChatType
 from routine_bot.enums.steps import DoneEventSteps
 from routine_bot.errors import EventNotFoundError, InvalidStepError
+from routine_bot.logger import format_logger_name, validate_event_name
 from routine_bot.models import ChatData, RecordData
-from routine_bot.utils import format_logger_name, validate_event_name
 
 logger = logging.getLogger(format_logger_name(__name__))
 
@@ -33,7 +33,7 @@ def _process_event_name(text: str, chat: ChatData, conn: psycopg.Connection) -> 
         return msg.error.event_name_not_found(event_name)
 
     chat_db.set_chat_current_step(chat.chat_id, DoneEventSteps.SELECT_DONE_DATE.value, conn)
-    chat.payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.patch_chat_payload(
         chat=chat,
         new_data={"event_id": event_id, "event_name": event_name, "chat_id": chat.chat_id},
         conn=conn,
@@ -81,7 +81,7 @@ def process_selected_done_date(
         logger.info("Updating event's last done date: The new done date is more recent")
         event_db.set_event_last_done_at(event_id, done_at, conn)
 
-    chat.payload = chat_db.update_chat_payload(
+    chat.payload = chat_db.patch_chat_payload(
         chat=chat,
         new_data={"done_at": done_at.isoformat()},
         conn=conn,

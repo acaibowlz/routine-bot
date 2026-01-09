@@ -4,8 +4,8 @@ from datetime import time
 import psycopg
 
 from routine_bot.errors import UserNotFoundError
+from routine_bot.logger import add_context, format_logger_name
 from routine_bot.models import UserData
-from routine_bot.utils import format_logger_name
 
 logger = logging.getLogger(format_logger_name(__name__))
 
@@ -19,7 +19,7 @@ def add_user(user_id: str, conn: psycopg.Connection) -> None:
             """,
             (user_id,),
         )
-    logger.debug(f"Inserting user: {user_id}")
+    logger.debug(f"User inserted: {user_id}")
 
 
 def get_user(user_id: str, conn: psycopg.Connection) -> UserData | None:
@@ -72,8 +72,7 @@ def list_active_users_by_time_slot(time_slot: time, conn: psycopg.Connection) ->
                 premium_until,
                 is_active
             FROM users
-            WHERE time_slot = %s
-            AND is_active = TRUE
+            WHERE time_slot = %s AND is_active = TRUE
             """,
             (time_slot,),
         )
@@ -95,8 +94,8 @@ def increment_user_event_count(user_id: str, by: int, conn: psycopg.Connection) 
         result = cur.fetchone()
         if result is None:
             raise UserNotFoundError(f"User not found: {user_id}")
-        logger.debug(f"Updating event_count for user: {user_id}")
-        logger.debug(f"Current event_count={result[0]}")
+    ctx_logger = add_context(logger, user_id=user_id)
+    ctx_logger.debug(f"Set event_count={result[0]}")
 
 
 def set_user_activeness(user_id: str, to: bool, conn: psycopg.Connection) -> None:
@@ -111,7 +110,8 @@ def set_user_activeness(user_id: str, to: bool, conn: psycopg.Connection) -> Non
         )
         if cur.rowcount == 0:
             raise UserNotFoundError(f"User not found: {user_id}")
-    logger.debug(f"Updating is_active for user: {user_id}")
+    ctx_logger = add_context(logger, user_id=user_id)
+    ctx_logger.debug(f"Set is_active={to}")
 
 
 def set_user_time_slot(user_id: str, time_slot: time, conn: psycopg.Connection) -> None:
@@ -126,7 +126,8 @@ def set_user_time_slot(user_id: str, time_slot: time, conn: psycopg.Connection) 
         )
         if cur.rowcount == 0:
             raise UserNotFoundError(f"User not found: {user_id}")
-    logger.debug(f"Updating time_slot for user: {user_id}")
+    ctx_logger = add_context(logger, user_id=user_id)
+    ctx_logger.debug(f"Set time_slot={time_slot}")
 
 
 def is_user_limited(user_id: str, conn: psycopg.Connection) -> bool:

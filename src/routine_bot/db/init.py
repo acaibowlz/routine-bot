@@ -2,7 +2,7 @@ import logging
 
 import psycopg
 
-from routine_bot.utils import format_logger_name
+from routine_bot.logger import format_logger_name
 
 logger = logging.getLogger(format_logger_name(__name__))
 

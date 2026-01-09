@@ -7,7 +7,6 @@ from linebot.v3.messaging import (
     FlexSeparator,
 )
 
-from routine_bot.constants import TZ_TAIPEI
 from routine_bot.messages.utils import (
     flex_bubble_template,
     flex_text_bold_line,
@@ -24,7 +23,7 @@ def enter_event_name() -> FlexMessage:
     return FlexMessage(altText="📝 請輸入要查詢的事項名稱", contents=bubble)
 
 
-def format_event_summary(chat_payload: dict[str, str]) -> FlexMessage:
+def format_event_info(chat_payload: dict[str, str]) -> FlexMessage:
     contents = [
         flex_text_bold_line(f"🍞［{chat_payload['event_name']}］的摘要"),
         FlexSeparator(),

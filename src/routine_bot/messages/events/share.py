@@ -1,4 +1,3 @@
-import base64
 
 from linebot.v3.messaging import (
     ButtonsTemplate,
@@ -16,10 +15,6 @@ def enter_event_name() -> FlexMessage:
     return FlexMessage(altText="📝 請輸入要分享的事項名稱", contents=bubble)
 
 
-def _create_share_code(text: str) -> str:
-    return base64.urlsafe_b64encode(text.encode()).rstrip(b"=").decode()
-
-
 def show_recipient_instruction(chat_payload: dict[str, str]) -> TemplateMessage:
     template = ButtonsTemplate(
         title=f"🍞 分享［{chat_payload['event_name']}］",
@@ -29,7 +24,7 @@ def show_recipient_instruction(chat_payload: dict[str, str]) -> TemplateMessage:
             "2️⃣ 貼上分享碼\n\n"
             "✨ 就能把這個事項同步給對方囉～"
         ),
-        actions=[ClipboardAction(label="📋 複製分享碼", clipboardText=_create_share_code(chat_payload["event_id"]))],
+        actions=[ClipboardAction(label="📋 複製分享碼", clipboardText=chat_payload["share_code"])],
     )
     return TemplateMessage(altText=f"🍞 分享［{chat_payload['event_name']}］", template=template)
 

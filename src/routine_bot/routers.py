@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 import psycopg
 from fastapi import APIRouter, HTTPException, Request, status
@@ -14,7 +14,7 @@ import routine_bot.messages as msg
 from routine_bot.constants import DATABASE_URL, ENV, SENDER_TOKEN, TZ_TAIPEI
 from routine_bot.handlers.main import configuration, handler
 from routine_bot.handlers.reminder import send_reminders_for_shared_events, send_reminders_for_user_owned_events
-from routine_bot.utils import format_logger_name
+from routine_bot.logger import add_context, format_logger_name, indent
 
 logger = logging.getLogger(format_logger_name(__name__))
 
@@ -69,7 +69,7 @@ async def send_reminder(request: Request):
 
     logger.info("Starting the reminder sending process")
     start_time = time.perf_counter()
-    execution_start = datetime.now(TZ_TAIPEI)
+    execution_start = datetime.now(UTC)
     try:
         with (
             psycopg.connect(conninfo=DATABASE_URL) as conn,
@@ -84,36 +84,42 @@ async def send_reminder(request: Request):
             user_owned_events = 0
             shared_events = 0
             for user in users:
-                logger.info(f"Processing for user: {user.user_id}")
+                cxt_logger = add_context(logger, user_id=user.user_id)
+                cxt_logger.info("Sending reminders")
                 if user.is_limited:
                     limited_users += 1
-                    logger.info("Failed to send reminders: User has exceeded free plan max event count")
+                    cxt_logger.info("Failed to send reminders: User has exceeded free plan max event count")
                     error_msg = msg.error.reminder_disabled()
                     line_bot_api.push_message(PushMessageRequest(to=user.user_id, messages=[error_msg]))
                     continue
                 user_owned_events += send_reminders_for_user_owned_events(user.user_id, line_bot_api, conn)
                 shared_events += send_reminders_for_shared_events(user.user_id, line_bot_api, conn)
-                logger.info(f"Process completed for user: {user.user_id}")
+                cxt_logger.info("Completed")
         processed_users = len(users) - limited_users
         elapsed_time = time.perf_counter() - start_time
-        logger.info("Reminder sending process completed")
-        logger.info("┌── Sender Summary ─────────────────────────")
-        logger.info(f"│ Time Slot: {time_slot}")
-        logger.info(f"│ Execution Start: {execution_start}")
-        logger.info(f"│ All Users: {len(users)}")
-        logger.info(f"│ Processed Users: {processed_users}")
-        logger.info(f"│ Limited Users: {limited_users}")
-        logger.info(f"│ All Events Sent: {user_owned_events + shared_events}")
-        logger.info(f"│ User Owned Events: {user_owned_events}")
-        logger.info(f"│ Shared Events: {shared_events}")
-        logger.info(f"│ Elapsed Time: {round(elapsed_time)} sec")
-        logger.info("└───────────────────────────────────────────")
+
+        summary = "\n".join(
+            [
+                "┌── Sender Summary ─────────────────────────",
+                f"│ Time Slot: {time_slot}",
+                f"│ Execution Start: {execution_start}",
+                f"│ All Users: {len(users)}",
+                f"│ Processed Users: {processed_users}",
+                f"│ Limited Users: {limited_users}",
+                f"│ All Events Sent: {user_owned_events + shared_events}",
+                f"│ User Owned Events: {user_owned_events}",
+                f"│ Shared Events: {shared_events}",
+                f"│ Elapsed Time: {round(elapsed_time)} sec",
+                "└───────────────────────────────────────────",
+            ]
+        )
+        logger.info(f"Reminder sending process completed\n{indent(summary)}")
 
     except Exception as e:
         if ENV == "develop":
-            logger.error(f"An error occurred during the reminder sending process: {e}", exc_info=True)
+            logger.error(f"An error occurred while sending reminders: {e}", exc_info=True)
         else:
-            logger.error(f"An error occurred during the reminder sending process: {e}")
+            logger.error(f"An error occurred while sending reminders: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal Server Error",

@@ -2,8 +2,9 @@ import logging
 
 import psycopg
 
+from routine_bot.errors import ShareNotFoundError
+from routine_bot.logger import add_context, format_logger_name
 from routine_bot.models import EventData, ShareData
-from routine_bot.utils import format_logger_name
 
 logger = logging.getLogger(format_logger_name(__name__))
 
@@ -23,7 +24,7 @@ def add_share(share: ShareData, conn: psycopg.Connection) -> None:
                 share.recipient_id,
             ),
         )
-    logger.debug(f"Inserting share: {share.share_id}")
+    logger.debug(f"Share inserted: {share.share_id}")
 
 
 def get_share_by_event(event_id: str, recipient_id: str, conn: psycopg.Connection) -> ShareData | None:
@@ -106,34 +107,30 @@ def delete_share(event_id: str, recipient_id: str, conn: psycopg.Connection):
             """
             DELETE FROM shares
             WHERE event_id = %s AND recipient_id = %s
+            RETURNING share_id
             """,
             (event_id, recipient_id),
         )
+        result = cur.fetchone()
+        if result is None:
+            raise ShareNotFoundError(f"Share not found: event_id={event_id}, recipient_id={recipient_id}")
+    logger.debug(f"Share deleted: {result[0]}")
 
 
-def delete_shares_by_event_id(event_id: str, conn: psycopg.Connection):
-    logger.debug(f"Deleting shares by event_id: {event_id}")
+def delete_shares_by_event(event_id: str, conn: psycopg.Connection):
+    ctx_logger = add_context(logger, event_id=event_id)
     with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT share_id
-            FROM shares
-            WHERE event_id = %s
-            """,
-            (event_id,),
-        )
-        share_ids = [row[0] for row in cur.fetchall()]
-        for share_id in share_ids:
-            logger.debug(f"Deleting share: {share_id}")
-
         cur.execute(
             """
             DELETE FROM shares
             WHERE event_id = %s
+            RETURNING share_id
             """,
             (event_id,),
         )
-        return share_ids
+        deleted_shares = cur.fetchall()
+        for share_id in deleted_shares:
+            ctx_logger.debug(f"Share deleted: {share_id}")
 
 
 def list_recipients_by_event(event_id: str, conn: psycopg.Connection) -> list[str]:

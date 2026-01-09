@@ -3,8 +3,6 @@ from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
-# ------------------------------ Env. Variables ------------------------------ #
-
 load_dotenv()
 
 ENV = os.getenv("ENV")
@@ -17,36 +15,3 @@ SENDER_TOKEN = os.getenv("SENDER_TOKEN")
 
 TZ_TAIPEI = ZoneInfo("Asia/Taipei")
 FREE_PLAN_MAX_EVENTS = 5
-
-# ---------------------------------- Config ---------------------------------- #
-
-LOGGING_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {"simple": {"format": "[%(levelname)8s] %(name)-24s - %(message)s"}},
-    "handlers": {
-        "stream": {
-            "class": "logging.StreamHandler",
-            "formatter": "simple",
-            "level": "DEBUG",
-            "stream": "ext://sys.stdout",
-        }
-    },
-    "root": {
-        "handlers": ["stream"],
-        "level": "DEBUG" if ENV == "develop" else "INFO",
-    },
-    "loggers": {
-        "uvicorn.error": {
-            "handlers": ["stream"],
-            "level": "INFO",
-            "propagate": False,
-        },
-        # Disable uvicorn.access logs
-        "uvicorn.access": {
-            "handlers": ["stream"],
-            "level": "ERROR",
-            "propagate": False,
-        },
-    },
-}

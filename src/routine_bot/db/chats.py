@@ -6,8 +6,8 @@ from psycopg.types.json import Json
 from routine_bot.enums.chat import ChatStatus
 from routine_bot.enums.steps import BaseSteps
 from routine_bot.errors import ChatNotFoundError
+from routine_bot.logger import add_context, format_logger_name
 from routine_bot.models import ChatData
-from routine_bot.utils import format_logger_name
 
 logger = logging.getLogger(format_logger_name(__name__))
 
@@ -28,7 +28,7 @@ def add_chat(chat: ChatData, conn: psycopg.Connection) -> None:
                 chat.status,
             ),
         )
-    logger.debug(f"Inserting chat: {chat.chat_id}")
+    logger.debug(f"Chat inserted: {chat.chat_id}")
 
 
 def get_chat(chat_id: str, conn: psycopg.Connection) -> ChatData | None:
@@ -47,11 +47,11 @@ def get_chat(chat_id: str, conn: psycopg.Connection) -> ChatData | None:
         return ChatData(*result)
 
 
-def get_ongoing_chat_id(user_id: str, conn: psycopg.Connection) -> str | None:
+def get_ongoing_chat(user_id: str, conn: psycopg.Connection) -> ChatData | None:
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT chat_id
+            SELECT chat_id, user_id, chat_type, current_step, payload, status
             FROM chats
             WHERE user_id = %s AND status = %s
             """,
@@ -60,7 +60,7 @@ def get_ongoing_chat_id(user_id: str, conn: psycopg.Connection) -> str | None:
         result = cur.fetchone()
         if result is None:
             return None
-        return result[0]
+        return ChatData(*result)
 
 
 def set_chat_payload(chat_id: str, payload: dict, conn: psycopg.Connection) -> None:
@@ -75,7 +75,8 @@ def set_chat_payload(chat_id: str, payload: dict, conn: psycopg.Connection) -> N
         )
         if cur.rowcount == 0:
             raise ChatNotFoundError(f"Chat not found: {chat_id}")
-    logger.debug(f"Updating payload for chat: {chat_id}")
+    ctx_logger = add_context(logger, chat_id=chat_id)
+    ctx_logger.debug(f"Set payload={payload}")
 
 
 def set_chat_current_step(chat_id: str, current_step: str | None, conn: psycopg.Connection) -> None:
@@ -90,7 +91,8 @@ def set_chat_current_step(chat_id: str, current_step: str | None, conn: psycopg.
         )
         if cur.rowcount == 0:
             raise ChatNotFoundError(f"Chat not found: {chat_id}")
-    logger.debug(f"Updating current_step for chat: {chat_id}")
+    ctx_logger = add_context(logger, chat_id=chat_id)
+    ctx_logger.debug(f"Set current_step={current_step}")
 
 
 def set_chat_status(chat_id: str, status: str, conn: psycopg.Connection) -> None:
@@ -105,35 +107,26 @@ def set_chat_status(chat_id: str, status: str, conn: psycopg.Connection) -> None
         )
         if cur.rowcount == 0:
             raise ChatNotFoundError(f"Chat not found: {chat_id}")
-    logger.debug(f"Updating status for chat: {chat_id}")
+    ctx_logger = add_context(logger, chat_id=chat_id)
+    ctx_logger.debug(f"Set status={status}")
 
 
-def update_chat_payload(
+def patch_chat_payload(
     chat: ChatData, new_data: dict[str, str], conn: psycopg.Connection, logger: logging.Logger
 ) -> dict[str, str]:
+    ctx_logger = add_context(logger, chat_id=chat.chat_id)
     for key, val in new_data.items():
-        if not chat.payload.get(key):
-            logger.debug(f"Adding to payload: {key}={val}")
+        if chat.payload.get(key) is None:
+            ctx_logger.debug(f"Adding to payload: {key}={val}")
         else:
-            logger.debug(f"Overwriting payload: {key}={val} (was {chat.payload['key']})")
+            ctx_logger.debug(f"Overwriting payload: {key}={val} (was {chat.payload[key]})")
         chat.payload[key] = val
     set_chat_payload(chat.chat_id, chat.payload, conn)
     return chat.payload
 
 
-def update_chat_current_step(
-    chat: ChatData, new_step: str | None, conn: psycopg.Connection, logger: logging.Logger
-) -> None:
-    logger.info(f"Setting current_step={new_step}")
-    set_chat_current_step(chat.chat_id, new_step, conn)
-
-
-def update_chat_status(chat: ChatData, new_status: str, conn: psycopg.Connection, logger: logging.Logger) -> None:
-    logger.info(f"Setting status={new_status}")
-    set_chat_status(chat.chat_id, new_status, conn)
-
-
 def finalize_chat(chat: ChatData, conn: psycopg.Connection, logger: logging.Logger) -> None:
-    logger.info(f"Finalizing chat: {chat.chat_id}")
-    update_chat_current_step(chat, BaseSteps.COMPLETED.value, conn, logger)
-    update_chat_status(chat, ChatStatus.COMPLETED.value, conn, logger)
+    set_chat_current_step(chat.chat_id, BaseSteps.COMPLETED.value, conn)
+    set_chat_status(chat.chat_id, ChatStatus.COMPLETED.value, conn)
+    ctx_logger = add_context(logger, chat_id=chat.chat_id)
+    ctx_logger.debug("Chat finalized")

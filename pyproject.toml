@@ -16,3 +16,4 @@ dependencies = [
 [tool.pyright]
 reportCallIssue = false
 reportAttributeAccessIssue = false
+reportOptionalMemberAccess = false

@@ -9,11 +9,7 @@ from dateutil.relativedelta import relativedelta
 
 from routine_bot.constants import LINE_CHANNEL_ACCESS_TOKEN
 from routine_bot.enums.units import SUPPORTED_UNITS
-
-
-def format_logger_name(module_name: str) -> str:
-    return module_name.split(".", maxsplit=1)[1]
-
+from routine_bot.logger import format_logger_name
 
 logger = logging.getLogger(format_logger_name(__name__))
 
@@ -47,13 +43,11 @@ def sanitize_msg(text: str) -> str:
 
     Steps:
     1. Trim leading/trailing whitespace and newlines
-    2. Normalize Unicode (NFKC) — converts fullwidth to halfwidth, etc.
-    3. Collapse multiple spaces/newlines
-    4. Remove invisible control characters
+    2. Collapse multiple spaces/newlines
+    3. Remove invisible control characters
     """
     if not text:
         return ""
-    # text = unicodedata.normalize("NFKC", text)
     text = text.strip()
     text = re.sub(r"[\t\r\n]+", " ", text)
     text = re.sub(r" {2,}", " ", text)
