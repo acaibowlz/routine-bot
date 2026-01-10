@@ -1,8 +1,10 @@
-
 from linebot.v3.messaging import (
     ButtonsTemplate,
     ClipboardAction,
     FlexMessage,
+    MessageAction,
+    QuickReply,
+    QuickReplyItem,
     TemplateMessage,
 )
 
@@ -26,7 +28,16 @@ def show_recipient_instruction(chat_payload: dict[str, str]) -> TemplateMessage:
         ),
         actions=[ClipboardAction(label="📋 複製分享碼", clipboardText=chat_payload["share_code"])],
     )
-    return TemplateMessage(altText=f"🍞 分享［{chat_payload['event_name']}］", template=template)
+    return TemplateMessage(
+        altText=f"🍞 分享［{chat_payload['event_name']}］",
+        template=template,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="繼續分享", text=Command.SHARE.value)),
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
+    )
 
 
 def reached_max_share_count(chat_payload: dict[str, str]) -> FlexMessage:

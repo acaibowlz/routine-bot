@@ -1,7 +1,15 @@
 import ast
 
-from linebot.v3.messaging import ButtonsTemplate, FlexMessage, MessageAction, TemplateMessage
+from linebot.v3.messaging import (
+    ButtonsTemplate,
+    FlexMessage,
+    MessageAction,
+    QuickReply,
+    QuickReplyItem,
+    TemplateMessage,
+)
 
+from routine_bot.enums.command import Command
 from routine_bot.messages.utils import flex_bubble_template
 
 
@@ -46,4 +54,12 @@ def recipient_revoked(chat_payload: dict[str, str]) -> FlexMessage:
         title=f"✅ 成功取消了{chat_payload['selected_recipient']}的共享權限",
         lines=[f"🍞 已取消了{chat_payload['selected_recipient']}對［{chat_payload['event_name']}］的共享權限"],
     )
-    return FlexMessage(altText=f"✅ 成功取消了{chat_payload['selected_recipient']}的共享權限", contents=bubble)
+    return FlexMessage(
+        altText=f"✅ 成功取消了{chat_payload['selected_recipient']}的共享權限",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
+    )

@@ -1,5 +1,13 @@
-from linebot.v3.messaging import ButtonsTemplate, FlexMessage, MessageAction, TemplateMessage
+from linebot.v3.messaging import (
+    ButtonsTemplate,
+    FlexMessage,
+    MessageAction,
+    QuickReply,
+    QuickReplyItem,
+    TemplateMessage,
+)
 
+from routine_bot.enums.command import Command
 from routine_bot.enums.options import ConfirmDeletionOptions
 from routine_bot.messages.utils import flex_bubble_template
 
@@ -32,12 +40,30 @@ def comfirm_event_deletion(chat_payload: dict[str, str]) -> TemplateMessage:
 
 def succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     bubble = flex_bubble_template(title=f"🍞 刪除［{chat_payload['event_name']}］", lines=["✅ 已成功刪除！"])
-    return FlexMessage(altText=f"✅［{chat_payload['event_name']}］已成功刪除！", contents=bubble)
+    return FlexMessage(
+        altText=f"✅［{chat_payload['event_name']}］已成功刪除！",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="繼續刪除", text=Command.DELETE.value)),
+                QuickReplyItem(action=MessageAction(label="快速指令", text=Command.MENU.value)),
+            ]
+        ),
+    )
 
 
 def cancelled(chat_payload: dict[str, str]) -> FlexMessage:
     bubble = flex_bubble_template(title=f"🍞 刪除［{chat_payload['event_name']}］", lines=["🚫 已取消刪除"])
-    return FlexMessage(altText="🚫 已取消刪除", contents=bubble)
+    return FlexMessage(
+        altText="🚫 已取消刪除",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="新增事項", text=Command.NEW.value)),
+                QuickReplyItem(action=MessageAction(label="快速指令", text=Command.MENU.value)),
+            ]
+        ),
+    )
 
 
 def invalid_delete_confirmation(chat_payload: dict[str, str]) -> TemplateMessage:

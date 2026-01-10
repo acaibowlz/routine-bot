@@ -23,7 +23,7 @@ def format_welcome() -> FlexMessage:
         quickReply=QuickReply(
             items=[
                 QuickReplyItem(action=MessageAction(label="新增事項", text=Command.NEW.value)),
-                QuickReplyItem(action=MessageAction(label="指令一覽表", text=Command.MENU.value)),
+                QuickReplyItem(action=MessageAction(label="快速指令", text=Command.MENU.value)),
             ]
         ),
     )

@@ -5,8 +5,12 @@ from linebot.v3.messaging import (
     FlexBubble,
     FlexMessage,
     FlexSeparator,
+    MessageAction,
+    QuickReply,
+    QuickReplyItem,
 )
 
+from routine_bot.enums.command import Command
 from routine_bot.messages.utils import (
     flex_bubble_template,
     flex_text_bold_line,
@@ -19,7 +23,9 @@ class FindEventSteps(StrEnum):
 
 
 def enter_event_name() -> FlexMessage:
-    bubble = flex_bubble_template(title="🍞 查詢事項", lines=["📝 請輸入要查詢的事項名稱"])
+    bubble = flex_bubble_template(
+        title="🍞 查詢事項", lines=["📝 請輸入要查詢的事項名稱", "❗ 只能查詢由自己新增的事項哦"]
+    )
     return FlexMessage(altText="📝 請輸入要查詢的事項名稱", contents=bubble)
 
 
@@ -55,5 +61,15 @@ def format_event_info(chat_payload: dict[str, str]) -> FlexMessage:
             contents=contents,
         ),
     )
-    msg = FlexMessage(altText=f"🍞［{chat_payload['event_name']}］的摘要", contents=bubble)
+    msg = FlexMessage(
+        altText=f"🍞［{chat_payload['event_name']}］的摘要",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="新增事項", text=Command.NEW.value)),
+                QuickReplyItem(action=MessageAction(label="編輯事項", text=Command.EDIT.value)),
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
+    )
     return msg

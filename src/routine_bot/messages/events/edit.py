@@ -1,5 +1,13 @@
-from linebot.v3.messaging import ButtonsTemplate, FlexMessage, MessageAction, TemplateMessage
+from linebot.v3.messaging import (
+    ButtonsTemplate,
+    FlexMessage,
+    MessageAction,
+    QuickReply,
+    QuickReplyItem,
+    TemplateMessage,
+)
 
+from routine_bot.enums.command import Command
 from routine_bot.enums.options import EditEventOptions, ToggleReminderOptions
 from routine_bot.messages.utils import flex_bubble_template
 
@@ -79,6 +87,12 @@ def edit_event_name_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
     msg = FlexMessage(
         altText=f"🍞 已將［{chat_payload['event_name']}］重新命名為［{chat_payload['new_event_name']}］",
         contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="繼續編輯", text=Command.EDIT.value)),
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
     )
     return msg
 
@@ -113,7 +127,16 @@ def toggle_reminder_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
                 f"🔁 重複週期：{chat_payload['event_cycle']}",
             ]
         bubble = flex_bubble_template(title="✅ 編輯成功", lines=lines)
-        msg = FlexMessage(altText=f"🍞 已開啟［{chat_payload['event_name']}］的提醒囉", contents=bubble)
+        msg = FlexMessage(
+            altText=f"🍞 已開啟［{chat_payload['event_name']}］的提醒囉",
+            contents=bubble,
+            quickReply=QuickReply(
+                items=[
+                    QuickReplyItem(action=MessageAction(label="繼續編輯", text=Command.EDIT.value)),
+                    QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+                ]
+            ),
+        )
         return msg
 
 
@@ -142,7 +165,16 @@ def edit_event_cycle_succeeded(chat_payload: dict[str, str]) -> FlexMessage:
             f"🔔 下次提醒：{chat_payload['next_due_at'][:10]}",
         ],
     )
-    msg = FlexMessage(altText=f"🍞 已更新［{chat_payload['event_name']}］的重複週期囉", contents=bubble)
+    msg = FlexMessage(
+        altText=f"🍞 已更新［{chat_payload['event_name']}］的重複週期囉",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="繼續編輯", text=Command.EDIT.value)),
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
+    )
     return msg
 
 

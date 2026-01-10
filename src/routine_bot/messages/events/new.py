@@ -3,10 +3,13 @@ from linebot.v3.messaging import (
     DatetimePickerAction,
     FlexMessage,
     MessageAction,
+    QuickReply,
+    QuickReplyItem,
     TemplateMessage,
 )
 
 from routine_bot.constants import FREE_PLAN_MAX_EVENTS
+from routine_bot.enums.command import Command
 from routine_bot.enums.options import NewEventReminderOptions
 from routine_bot.messages.utils import flex_bubble_template
 
@@ -63,7 +66,16 @@ def succeeded_no_reminder(chat_payload: dict[str, str]) -> FlexMessage:
             "🔕 提醒狀態：關閉",
         ],
     )
-    return FlexMessage(altText=f"🍞 新事項［{chat_payload['event_name']}］已準備就緒", contents=bubble)
+    return FlexMessage(
+        altText=f"🍞 新事項［{chat_payload['event_name']}］已準備就緒",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="繼續新增", text=Command.NEW.value)),
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
+    )
 
 
 def succeeded_with_reminder(chat_payload: dict[str, str]) -> FlexMessage:
@@ -76,7 +88,16 @@ def succeeded_with_reminder(chat_payload: dict[str, str]) -> FlexMessage:
             f"🔔 下次提醒：{chat_payload['next_due_at'][:10]}",
         ],
     )
-    return FlexMessage(altText=f"🍞 新事項［{chat_payload['event_name']}］已準備就緒", contents=bubble)
+    return FlexMessage(
+        altText=f"🍞 新事項［{chat_payload['event_name']}］已準備就緒",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="繼續新增", text=Command.NEW.value)),
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
+    )
 
 
 def invalid_text_input(chat_payload: dict[str, str]) -> TemplateMessage:

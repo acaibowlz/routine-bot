@@ -1,5 +1,6 @@
-from linebot.v3.messaging import FlexMessage
+from linebot.v3.messaging import FlexMessage, MessageAction, QuickReply, QuickReplyItem
 
+from routine_bot.enums.command import Command
 from routine_bot.messages.utils import flex_bubble_template
 
 
@@ -17,7 +18,15 @@ def succeeded(chat_payload: dict[str, str]) -> FlexMessage:
             f"🔁 重複週期：{chat_payload['event_cycle']}",
         ],
     )
-    return FlexMessage(altText=f"🍞 成功共享［{chat_payload['event_name']}］", contents=bubble)
+    return FlexMessage(
+        altText=f"🍞 成功共享［{chat_payload['event_name']}］",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
+    )
 
 
 def duplicated(chat_payload: dict[str, str]) -> FlexMessage:

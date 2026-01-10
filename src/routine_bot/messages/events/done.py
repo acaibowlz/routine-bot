@@ -2,9 +2,13 @@ from linebot.v3.messaging import (
     ButtonsTemplate,
     DatetimePickerAction,
     FlexMessage,
+    MessageAction,
+    QuickReply,
+    QuickReplyItem,
     TemplateMessage,
 )
 
+from routine_bot.enums.command import Command
 from routine_bot.messages.utils import flex_bubble_template
 
 
@@ -28,7 +32,16 @@ def succeeded(chat_payload: dict[str, str]) -> FlexMessage:
         title="✅ 已幫你記下完成日期囉～",
         lines=[f"🍞 事項：{chat_payload['event_name']}", f"🗓 完成日期：{chat_payload['done_at'][:10]}"],
     )
-    msg = FlexMessage(altText=f"✅［{chat_payload['event_name']}］已新增完成紀錄", contents=bubble)
+    msg = FlexMessage(
+        altText=f"✅［{chat_payload['event_name']}］已新增完成紀錄",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="繼續新增", text=Command.DONE.value)),
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
+    )
     return msg
 
 

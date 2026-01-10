@@ -1,8 +1,17 @@
 from datetime import datetime, timedelta
 
-from linebot.v3.messaging import ButtonsTemplate, DatetimePickerAction, FlexMessage, MessageAction, TemplateMessage
+from linebot.v3.messaging import (
+    ButtonsTemplate,
+    DatetimePickerAction,
+    FlexMessage,
+    MessageAction,
+    QuickReply,
+    QuickReplyItem,
+    TemplateMessage,
+)
 
 from routine_bot.constants import TZ_TAIPEI
+from routine_bot.enums.command import Command
 from routine_bot.enums.options import UserSettingsOptions
 from routine_bot.messages.utils import flex_bubble_template
 
@@ -57,7 +66,16 @@ def succeeded(chat_payload: dict[str, str]) -> FlexMessage:
             f"🗓 {next_run.strftime('%Y-%m-%d')} {next_run.strftime('%H:%M')}",
         ],
     )
-    msg = FlexMessage(altText="⚙️ 使用者設定 ✅ 提醒時段已更新", contents=bubble)
+    msg = FlexMessage(
+        altText="⚙️ 使用者設定 ✅ 提醒時段已更新",
+        contents=bubble,
+        quickReply=QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="新增事項", text=Command.NEW.value)),
+                QuickReplyItem(action=MessageAction(label="指令表", text=Command.MENU.value)),
+            ]
+        ),
+    )
     return msg
 
 
