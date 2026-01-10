@@ -115,7 +115,7 @@ def _process_new_event_name(text: str, chat: ChatData, conn: psycopg.Connection)
             f"│ Event Name: {event.event_name}",
             f"│ Event ID: {event.event_id}",
             f"│ User: {chat.user_id}",
-            "│ Change: Event name",
+            "│ Change: Event Name",
             f"│ Details: {event.event_name} → {new_event_name}",
             "└───────────────────────────────────────────",
         ]
@@ -148,6 +148,7 @@ def _confirm_toggle_reminder(chat: ChatData, conn: psycopg.Connection) -> Templa
     event_id = chat.payload["event_id"]
     event = event_db.get_event_by_id(event_id, conn)
     event_db.set_event_reminder_enabled(event.event_id, new_reminder_flag, conn)
+    cxt_logger.info(f"Reminder {'enabled' if new_reminder_flag else 'disabled'}")
     chat_db.finalize_chat(chat, conn, logger)
 
     summary = "\n".join(
@@ -226,7 +227,7 @@ def _process_new_event_cycle(text: str, chat: ChatData, conn: psycopg.Connection
             f"│ Event Name: {event.event_name}",
             f"│ Event ID: {event.event_id}",
             f"│ User: {chat.user_id}",
-            "│ Change: Event cycle",
+            "│ Change: Event Cycle",
             f"│ Details: {event.event_cycle or 'None'} → {new_event_cycle}",
             f"│ Last Done: {last_done_at.astimezone(UTC)}",
             f"│ Next Due: {next_due_at.astimezone(UTC)}",
