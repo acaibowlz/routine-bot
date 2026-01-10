@@ -1,3 +1,4 @@
+import copy
 import logging
 import sys
 
@@ -14,26 +15,30 @@ def format_logger_name(module_name: str) -> str:
 
 class ContextFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        chat_id = getattr(record, "chat_id", None)
-        event_id = getattr(record, "event_id", None)
-        user_id = getattr(record, "user_id", None)
-        share_id = getattr(record, "share_id", None)
-        record_id = getattr(record, "record_id", None)
+        r = copy.copy(record)
+        message = r.getMessage()
+
+        chat_id = getattr(r, "chat_id", None)
+        event_id = getattr(r, "event_id", None)
+        user_id = getattr(r, "user_id", None)
+        share_id = getattr(r, "share_id", None)
+        record_id = getattr(r, "record_id", None)
 
         if chat_id:
-            record.msg = f"[chat:{shorten_uuid(chat_id)}] - {record.getMessage()}"
+            r.msg = f"[chat:{shorten_uuid(chat_id)}] - {message}"
         elif event_id:
-            record.msg = f"[event:{shorten_uuid(event_id)}] - {record.getMessage()}"
+            r.msg = f"[event:{shorten_uuid(event_id)}] - {message}"
         elif user_id:
-            record.msg = f"[user:{shorten_uuid(user_id)}] - {record.getMessage()}"
+            r.msg = f"[user:{shorten_uuid(user_id)}] - {message}"
         elif share_id:
-            record.msg = f"[share:{shorten_uuid(share_id)}] - {record.getMessage()}"
+            r.msg = f"[share:{shorten_uuid(share_id)}] - {message}"
         elif record_id:
-            record.msg = f"[record:{shorten_uuid(record_id)}] - {record.getMessage()}"
+            r.msg = f"[record:{shorten_uuid(record_id)}] - {message}"
         else:
-            record.msg = record.getMessage()
+            r.msg = message
 
-        return super().format(record)
+        r.args = ()
+        return super().format(r)
 
 
 def setup_logging() -> None:
@@ -54,10 +59,14 @@ def setup_logging() -> None:
     uvicorn_error = logging.getLogger("uvicorn.error")
     uvicorn_error.setLevel(logging.INFO)
     uvicorn_error.handlers.clear()
+    uvicorn_error.propagate = False
+    uvicorn_error.addHandler(handler)
 
     uvicorn_access = logging.getLogger("uvicorn.access")
     uvicorn_access.setLevel(logging.ERROR)
     uvicorn_access.handlers.clear()
+    uvicorn_access.propagate = False
+    uvicorn_access.addHandler(handler)
 
 
 class ContextLoggerAdapter(logging.LoggerAdapter):
