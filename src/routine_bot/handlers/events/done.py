@@ -58,14 +58,14 @@ def process_selected_done_date(
 
     done_at = datetime.strptime(postback.postback.params["date"], "%Y-%m-%d")
     done_at = done_at.replace(tzinfo=TZ_TAIPEI)
-    today = datetime.today().astimezone(tz=TZ_TAIPEI)
-    cxt_logger.info(f"New done date set to {done_at}")
-    if done_at > today:
-        cxt_logger.debug("Done date exceeds today: %s > %s", done_at, today)
-        return msg.events.done.invalid_done_date_selected_exceeds_today(chat.payload)
 
     event_id = chat.payload["event_id"]
     event = event_db.get_event_by_id(event_id, conn)
+    today = datetime.today().astimezone(tz=TZ_TAIPEI)
+    if done_at > today:
+        cxt_logger.debug("Done date exceeds today: %s > %s", done_at.astimezone(UTC), today.astimezone(UTC))
+        return msg.events.done.invalid_done_date_selected_exceeds_today(chat.payload)
+
     record_id = str(uuid.uuid4())
     record = RecordData(
         record_id=record_id,
@@ -75,6 +75,7 @@ def process_selected_done_date(
         done_at=done_at,
     )
     record_db.add_record(record, conn)
+    cxt_logger.info(f"New done date set to {done_at.astimezone(UTC)}")
     if done_at > event.last_done_at:
         logger.info("Updating event's latest done date")
         event_db.set_event_last_done_at(event_id, done_at, conn)

@@ -58,9 +58,9 @@ def process_selected_start_date(postback: PostbackEvent, chat: ChatData, conn: p
     start_date = datetime.strptime(postback.postback.params["date"], "%Y-%m-%d")
     start_date = start_date.replace(tzinfo=TZ_TAIPEI)
     today = datetime.today().astimezone(tz=TZ_TAIPEI)
-    cxt_logger.info("Start date set to %s", start_date.isoformat())
+    cxt_logger.info("Start date set to %s", start_date.astimezone(UTC))
     if start_date > today:
-        cxt_logger.debug("Start date exceeds today: %s > %s", start_date, today)
+        cxt_logger.debug("Start date exceeds today: %s > %s", start_date.astimezone(UTC), today.astimezone(UTC))
         return msg.events.new.invalid_start_date_selected_exceeds_today(chat.payload)
 
     chat_db.set_chat_current_step(chat.chat_id, NewEventSteps.ENTER_REMINDER_OPTION.value, conn)

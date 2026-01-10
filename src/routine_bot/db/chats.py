@@ -129,4 +129,4 @@ def finalize_chat(chat: ChatData, conn: psycopg.Connection, logger: logging.Logg
     set_chat_current_step(chat.chat_id, BaseSteps.COMPLETED.value, conn)
     set_chat_status(chat.chat_id, ChatStatus.COMPLETED.value, conn)
     ctx_logger = add_context(logger, chat_id=chat.chat_id)
-    ctx_logger.debug("Chat finalized")
+    ctx_logger.info("Chat finalized")
