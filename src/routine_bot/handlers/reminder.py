@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 import psycopg
 from linebot.v3.messaging import MessagingApi, PushMessageRequest
@@ -28,7 +28,7 @@ def send_reminders_for_user_owned_events(user_id: str, line_bot_api: MessagingAp
         payload["event_cycle"] = event.event_cycle
         payload["last_done_at"] = event.last_done_at.strftime("%Y-%m-%d")
         if event.next_due_at is not None:
-            payload["time_diff"] = get_time_diff(datetime.now(), event.next_due_at)
+            payload["time_diff"] = get_time_diff(datetime.now(UTC), event.next_due_at)
             payload["next_due_at"] = event.next_due_at.astimezone(tz=TZ_TAIPEI).strftime("%Y-%m-%d")
         push_msg = msg.reminder.user_owned_event(payload)
         line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[push_msg]))
@@ -52,7 +52,7 @@ def send_reminders_for_shared_events(user_id: str, line_bot_api: MessagingApi, c
         payload["event_cycle"] = event.event_cycle
         payload["last_done_at"] = event.last_done_at.strftime("%Y-%m-%d")
         if event.next_due_at is not None:
-            payload["time_diff"] = get_time_diff(datetime.now(), event.next_due_at)
+            payload["time_diff"] = get_time_diff(datetime.now(UTC), event.next_due_at)
             payload["next_due_at"] = event.next_due_at.astimezone(tz=TZ_TAIPEI).strftime("%Y-%m-%d")
         push_msg = msg.reminder.shared_event(event, owner_profile.display_name)
         line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[push_msg]))
