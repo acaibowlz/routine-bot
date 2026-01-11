@@ -1,4 +1,3 @@
-
 from linebot.v3.messaging import FlexMessage
 
 from routine_bot.constants import FREE_PLAN_MAX_EVENTS
@@ -13,7 +12,7 @@ def user_owned_event(payload: dict[str, str]) -> FlexMessage:
     ]
     if payload["time_diff"] != "今天":
         lines.append(f"🔔 原定時間：{payload['time_diff']}")
-        lines.append(f"⏳ 已延後：{payload['time_diff']}")
+        lines.append(f"⏳ 已延後：{payload['time_diff'][:-1]}")
 
     bubble = flex_bubble_template(title=title, lines=lines)
     msg = FlexMessage(altText=title, contents=bubble)
@@ -29,7 +28,7 @@ def shared_event(payload: dict[str, str]) -> FlexMessage:
     ]
     if payload["time_diff"] != "今天":
         lines.append(f"🔔 原定時間：{payload['time_diff']}")
-        lines.append(f"⏳ 已延後：{payload['time_diff']}")
+        lines.append(f"⏳ 已延後：{payload['time_diff'][:-1]}")
 
     bubble = flex_bubble_template(title=title, lines=lines)
     msg = FlexMessage(altText=title, contents=bubble)

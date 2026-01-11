@@ -21,7 +21,8 @@ logger = logging.getLogger(format_logger_name(__name__))
 
 
 def _prepare_new_time_slot_selection(chat: ChatData, conn: psycopg.Connection) -> TemplateMessage:
-    logger.info("Option selected: new time slot")
+    cxt_logger = add_context(logger, chat_id=chat.chat_id)
+    cxt_logger.info("Option selected: New time slot")
     user = user_db.get_user(chat.user_id, conn)
     chat_db.set_chat_current_step(chat.chat_id, UserSettingsSteps.SELECT_NEW_TIME_SLOT.value, conn)
     chat.payload = chat_db.patch_chat_payload(
@@ -43,13 +44,12 @@ def process_new_time_slot_selection(
     if postback.postback.params is None:
         raise AttributeError("Postback contains no data")
 
-    time_received = postback.postback.params["time"]
-    if time_received.split(":")[1] != "00":
-        cxt_logger.debug("Invalid time slot selected (minute must be 00): %r", time_received)
+    time_slot = postback.postback.params["time"]
+    if time_slot.split(":")[1] != "00":
+        cxt_logger.debug("Invalid time slot selected (minute must be 00): %r", time_slot)
         return msg.users.settings.invalid_time_slot(chat.payload)
-    time_slot = datetime.strptime(time_received, "%H:%M").time()
-    user_db.set_user_time_slot(chat.user_id, time_slot, conn)
-
+    user_db.set_user_time_slot(chat.user_id, datetime.strptime(time_slot, "%H:%M").time(), conn)
+    cxt_logger.info("Time slot set to: %s", time_slot)
     chat.payload = chat_db.patch_chat_payload(
         chat=chat, new_data={"new_slot": time_slot.strftime("%H:%M")}, conn=conn, logger=logger
     )
