@@ -50,9 +50,7 @@ def process_new_time_slot_selection(
         return msg.users.settings.invalid_time_slot(chat.payload)
     user_db.set_user_time_slot(chat.user_id, datetime.strptime(time_slot, "%H:%M").time(), conn)
     cxt_logger.info("Time slot set to: %s", time_slot)
-    chat.payload = chat_db.patch_chat_payload(
-        chat=chat, new_data={"new_slot": time_slot.strftime("%H:%M")}, conn=conn, logger=logger
-    )
+    chat.payload = chat_db.patch_chat_payload(chat=chat, new_data={"new_slot": time_slot}, conn=conn, logger=logger)
     chat_db.finalize_chat(chat, conn, logger)
 
     summary = "\n".join(
